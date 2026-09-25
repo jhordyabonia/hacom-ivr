@@ -1,19 +1,22 @@
 <!--
   FreeSWITCH como AS aplicación (SIP plano, sin Asterisk).
   Recibe INVITEs del AS Frontera (asfront) habilitados por las iFC del S-CSCF:
-    - 0100002 -> IVR de bienvenida (playback del audio 8 kHz)
+    - 0100002 -> IVR interactivo: motor Lua (menú DTMF por país, flujos JSON).
+                 Flujos: freeswitch/flows/<pais>.json ; motor: freeswitch/scripts/ivr_flow.lua
+                 Persiste elección en /mnt/freeswitch/logs/ivr_cdr.jsonl (CDR de opción).
     - 0100003 -> VMS: graba el mensaje del UE en INBOX/msg*.wav
-  RTP path: UE <-> RTPEngine <-> FreeSWITCH (el mediad mediabot lo ancla RTPEngine)
+  RTP path: UE <-> RTPEngine <-> FreeSWITCH (el ancla de RTP lo hace RTPEngine)
 -->
 <include>
   <context name="public">
 
-    <!-- Pausa/tono de llamada opcional; mantenemos un ACK de sesión audible -->
-    <extension name="ivr_0100002">
+    <!-- IVR interactivo con menú DTMF (FEAT-01). País por variable, costumizable en S-CSCF/iFC. -->
+    <extension name="ivr_menu_0100002">
       <condition field="destination_number" expression="^0100002$">
         <action application="answer"/>
         <action application="sleep" data="500"/>
-        <action application="playback" data="/mnt/freeswitch/ivr_bienvenida.wav"/>
+        <action application="set" data="ivr_flow=cl"/>
+        <action application="lua" data="ivr_flow.lua ${ivr_flow}"/>
         <action application="hangup"/>
       </condition>
     </extension>

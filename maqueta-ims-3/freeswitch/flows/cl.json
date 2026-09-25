@@ -1,0 +1,13 @@
+{
+  "name": "bienvenida_cl",
+  "country": "cl",
+  "greeting": "/mnt/freeswitch/ivr_bienvenida.wav",
+  "menu": "/mnt/freeswitch/audio/menu.wav",
+  "invalid": "/mnt/freeswitch/audio/invalido.wav",
+  "max_tries": 3,
+  "options": [
+    { "digit": "1", "desc": "saldo",  "action": "playback", "file": "/mnt/freeswitch/audio/saldo.wav",  "then": "repeat" },
+    { "digit": "2", "desc": "ayuda",  "action": "playback", "file": "/mnt/freeswitch/audio/ayuda.wav",  "then": "repeat" },
+    { "digit": "9", "desc": "colgar", "action": "bye",       "file": null,                                "then": "bye" }
+  ]
+}

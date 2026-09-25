@@ -267,6 +267,7 @@ services:
     dns: ${DNS_IP}
     volumes:
       - ./freeswitch:/mnt/freeswitch
+      - ./freeswitch/scripts:/usr/share/freeswitch/scripts
       - ./freeswitch/vms:/var/lib/freeswitch/storage/vms
       - /etc/localtime:/etc/localtime:ro
     depends_on:

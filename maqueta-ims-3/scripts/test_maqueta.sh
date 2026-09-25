@@ -97,6 +97,29 @@ report "$([ $RAS -eq 0 ] && echo 0 || echo 1)" "AS Frontera relay ISC -> FS" "lo
 report "$([ $RRT -eq 0 ] && echo 0 || echo 1)" "RTPEngine engaged (P-CSCF)" "medios reemplazados por RTPEngine"
 kill_sip; sleep 1
 
+say "PASO 5b/6 — FEAT-01: menú DTMF del IVR (país CL, dígito 1 = saldo)"
+# El IVR (0100002) ejecuta la opción 1 (playback de saldo.wav) al recibir el DTMF.
+# En pjsua '#' abre la edición interactiva de dígitos ("DTMF strings to send") y la
+# siguiente línea '1' envía el RFC 2833 1. Consumido por play_and_get_digits
+# (session:execute) y persistido en flows/cl.json -> action=playback.
+IVR_N0=$(docker exec "$FREESWITCH" sh -c "wc -l < /mnt/freeswitch/logs/ivr_cdr.jsonl 2>/dev/null || echo 0")
+docker exec -d "$SOFTPHONE" sh -c "rm -f /tmp/pjF.log; ( until grep -aq 'Response msg 200/REGISTER' /tmp/pjF.log 2>/dev/null; do sleep 0.2; done; echo m; sleep 0.7; echo 'sip:0100002@$DOMAIN'; sleep 5; printf '#\n1\n'; sleep 10 ) | pjsua --id sip:$UE1_MSISDN@$DOMAIN --registrar sip:$DOMAIN:5060 $BASE --username $UE1_MSISDN --password $UE1_KI --local-port 5061 --outbound=sip:$PCSCF_IP:5060\;lr > /tmp/pjF.log 2>&1 &"
+wait_pj 25 pjF.log "Call 0 state changed to CONFIRMED"; RF=$?
+# La acción se registra ~5s después del CONFIRMED (cuando llega el RFC 2833): se espera.
+IVR_ACTION=""; IVR_JSONL=""
+i=0
+while [ "$i" -lt 20 ]; do
+  sleep 1; i=$((i+1))
+  [ -z "$IVR_ACTION" ] && IVR_ACTION=$(docker logs --since 45s "$FREESWITCH" 2>&1 | grep -aoE "IVR_ACTION flow=bienvenida_cl caller=0010100001 digit=1 action=playback" | head -1)
+  if [ -z "$IVR_JSONL" ]; then
+    IVR_JSONL=$(docker exec "$FREESWITCH" sh -c "tail -n +$((IVR_N0+1)) /mnt/freeswitch/logs/ivr_cdr.jsonl 2>/dev/null" | grep -a '"digit":"1","action":"playback"' | head -1)
+  fi
+  [ -n "$IVR_ACTION" ] && [ -n "$IVR_JSONL" ] && break
+done
+report "$([ "$RF" -eq 0 ] && [ -n "$IVR_ACTION" ] && echo 0 || echo 1)" "FEAT-01: menú DTMF (opción 1)" "$([ -n "$IVR_ACTION" ] && echo 'IVR_ACTION digit=1 action=playback' || echo 'DTMF no ejecutó acción')"
+report "$([ -n "$IVR_JSONL" ] && echo 0 || echo 1)" "FEAT-01: CDR de opción persistido" "$([ -n "$IVR_JSONL" ] && echo 'ivr_cdr.jsonl digit=1 action=playback' || echo 'sin fila nueva digit=1')"
+kill_sip; sleep 1
+
 say "PASO 6/6 — VMS: el UE1 deja un mensaje en el buzón 0100003 (iFC)"
 # El AS necesita audio real para la grabación (con --null-audio pjsua no genera
 # RTP y la app abandona: "Recording was 0 seconds long"). Se genera un tono de

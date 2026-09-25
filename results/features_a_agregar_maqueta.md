@@ -4,7 +4,8 @@
 > (Core IMS + AS Frontera ISC + FreeSWITCH como AS aplicación) para cubrir las
 > funcionalidades del RFP uVAS 2026.
 > Base: `results/cruce_RFP_maqueta_FreeSWITCH.md` (trazabilidad F1–F12) y
-> estado validado E2E 15/15 + AKA (Digest-AKAv1-MD5) demostrado.
+> estado validado E2E **17/17** (15 base + 2 de FEAT-01) + AKA (Digest-AKAv1-MD5)
+> demostrado.
 >
 > **Principio rector:** cada servicio VAS es un **Application Server (AS)**
 > enrutado por **iFC del HSS vía ISC**, igual que hoy el INVITE a `asfront`.
@@ -17,7 +18,7 @@
 
 | ID | Feature | RFP | Tipo | Prioridad | Estado actual |
 |----|---------|-----|------|-----------|---------------|
-| FEAT-01 | IVR productivo (menú DTMF + BD + flujos por país) | F7 | Ampliación | P0 | IVR básico listo |
+| FEAT-01 | IVR productivo (menú DTMF + BD + flujos por país) | F7 | Ampliación | P0 | **Listo** (E2E 17/17) |
 | FEAT-02 | VMS completo (mod_voicemail, MWI, recuperación) | F4 | Ampliación | P0 | VMS básico listo |
 | FEAT-03 | MCA — aviso de llamada perdida | F5 | Ampliación nativa | P0 | No |
 | FEAT-04 | Charging: CDR → MySQL + API | F9 | Ampliación nativa | P1 | No (CDR ya se genera) |
@@ -59,6 +60,21 @@ de menú interactivo** configurable y persistente.
 - E2E nuevo check: "IVR modúa opción DTMF → acción ejecutada (check en log FS)".
 - Un flujo nuevo se puede desplegar **sin reiniciar FreeSWITCH**.
 - CDR de la sesión aparece en BD/UI.
+
+> **ESTADO: LISTO** (rama `feature/feat-01-ivr-dtmf`, E2E **17/17**).
+> Implementado en `maqueta-ims-3/freeswitch`:
+> - `conf/dialplan/public.xml`: extensión `ivr_menu_0100002` (answer →
+>   `set ivr_flow=<pais>` → `lua ivr_flow.lua ${ivr_flow}` → hangup).
+> - `scripts/ivr_flow.lua`: motor Lua — parser JSON embebido, saludo, menú
+>   `play_and_get_digits` (vía `session:execute`, que sí consume el RFC 2833 que
+>   el binding `session:playAndGetDigits` descartaba), acciones playback/bye y
+>   persistencia del CDR de opción en `logs/ivr_cdr.jsonl` + log `IVR_ACTION`.
+> - `flows/cl.json` (`1`=saldo, `2`=ayuda, `9`=colgar) y `flows/co.json`
+>   (`1`=recarga): desplegable sin reiniciar FreeSWITCH (bind-mount).
+> - `audio/{menu,saldo,ayuda,invalido}.wav` (8 kHz).
+> - Check E2E (PASO 5b de `scripts/test_maqueta.sh`): "FEAT-01: menú DTMF
+>   (opción 1)" y "FEAT-01: CDR de opción persistido" → ambos PASS.
+> - Apto posteriormente para FEAT-09 (menu USSD) y FEAT-10 (SCE).
 
 ---
 
@@ -330,8 +346,8 @@ motor de menú del SCE (FEAT-10).
 
 ## 15. Contrato de no-regresión (aplicar en cada feature)
 
-1. `bash scripts/test_maqueta.sh` → **15/15** sobre la versión actual; al añadir
-   features, el contador asciende (no baja).
+1. `bash scripts/test_maqueta.sh` → **17/17** sobre la versión actual (15 base +
+   FEAT-01); al añadir features, el contador asciende (no baja).
 2. Si se toca PyHSS/S-CSCF: re-ejecutar la sonda AKA
    (`ue_aka_probe.py` → 200 OK).
 3. No se modifica la red `172.32.0.0/24` ni los puertos Cx sin actualizar

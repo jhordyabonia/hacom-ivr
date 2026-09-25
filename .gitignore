@@ -15,3 +15,6 @@ __pycache__/
 
 # Salidas de benchmark regenerables
 maqueta-ims-3/scripts/bench_*.txt
+
+# CDR de opción IVR (runtime generado por el E2E PASO 5b)
+maqueta-ims-3/freeswitch/logs/
