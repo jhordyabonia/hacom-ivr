@@ -21,6 +21,7 @@ SOFTPHONE="mims3_softphone"
 FREESWITCH="mims3_freeswitch"
 ASFRONT="mims3_asfront"
 PCSCF="mims3_pcscf"
+MYSQL="mims3_mysql"
 PCSCF_IP="172.32.0.8"
 FS_IP="172.32.0.15"
 VMS_DIR="/var/lib/freeswitch/storage/vms/0100003/INBOX"
@@ -118,6 +119,35 @@ while [ "$i" -lt 20 ]; do
 done
 report "$([ "$RF" -eq 0 ] && [ -n "$IVR_ACTION" ] && echo 0 || echo 1)" "FEAT-01: menú DTMF (opción 1)" "$([ -n "$IVR_ACTION" ] && echo 'IVR_ACTION digit=1 action=playback' || echo 'DTMF no ejecutó acción')"
 report "$([ -n "$IVR_JSONL" ] && echo 0 || echo 1)" "FEAT-01: CDR de opción persistido" "$([ -n "$IVR_JSONL" ] && echo 'ivr_cdr.jsonl digit=1 action=playback' || echo 'sin fila nueva digit=1')"
+kill_sip; sleep 1
+
+say "PASO 5c/6 — FEAT-01b: cambio de contraseña/PIN por IVR (CL, opción 3)"
+# Ruta éxito: DTMF 3 -> nuevo PIN 2468 + confirmación -> busybox wget POST a la API
+# VAS -> vas.subscriber_pin=2468 y log IVR_PIN result=ok. La confirmación se reenvía
+# (pjsua a veces pierde un bloque de stdin) para hacer el test determinista.
+# Ruta fallo: confirmación distinta (1111 vs 2222) -> result=fail y la BD queda íntegra.
+docker exec "$MYSQL" sh -c "mysql -u root -e \"UPDATE vas.subscriber_pin SET pin='1234' WHERE msisdn='0010100001'\"" 2>/dev/null
+docker exec -d "$SOFTPHONE" sh -c "rm -f /tmp/pjP.log; ( until grep -aq 'Response msg 200/REGISTER' /tmp/pjP.log 2>/dev/null; do sleep 0.2; done; echo m; sleep 0.7; echo 'sip:0100002@$DOMAIN'; sleep 8; printf '#\n3\n'; sleep 8; printf '#\n2468\n'; sleep 8; printf '#\n2468\n'; sleep 2; printf '#\n2468\n'; sleep 8 ) | pjsua --id sip:$UE1_MSISDN@$DOMAIN --registrar sip:$DOMAIN:5060 $BASE --username $UE1_MSISDN --password $UE1_KI --local-port 5061 --outbound=sip:$PCSCF_IP:5060\;lr > /tmp/pjP.log 2>&1 &"
+wait_pj 35 pjP.log "Call 0 state changed to CONFIRMED"; RPA=$?
+IVR_PIN=""; i=0
+while [ -z "$IVR_PIN" ] && [ "$i" -lt 35 ]; do
+  sleep 2; i=$((i+1))
+  IVR_PIN=$(docker logs --since 90s "$FREESWITCH" 2>&1 | grep -aoE "IVR_PIN caller=0010100001 result=ok digit=3" | head -1)
+done
+DB_PIN=$(docker exec "$MYSQL" sh -c "mysql -u root -N -B -e \"SELECT pin FROM vas.subscriber_pin WHERE msisdn='0010100001'\"" 2>/dev/null | tr -d '\r\n ')
+report "$([ "$RPA" -eq 0 ] && [ -n "$IVR_PIN" ] && echo 0 || echo 1)" "FEAT-01b: cambio de contraseña (opción 3)" "$([ -n "$IVR_PIN" ] && echo 'IVR_PIN result=ok' || echo 'no se completó el cambio')"
+report "$([ "$DB_PIN" = "2468" ] && echo 0 || echo 1)" "FEAT-01b: PIN persistido en vas.subscriber_pin" "$([ "$DB_PIN" = "2468" ] && echo 'pin=2468' || echo "pin=$DB_PIN")"
+kill_sip; sleep 1
+docker exec "$MYSQL" sh -c "mysql -u root -e \"UPDATE vas.subscriber_pin SET pin='2468' WHERE msisdn='0010100001'\"" 2>/dev/null
+docker exec -d "$SOFTPHONE" sh -c "rm -f /tmp/pjQ.log; ( until grep -aq 'Response msg 200/REGISTER' /tmp/pjQ.log 2>/dev/null; do sleep 0.2; done; echo m; sleep 0.7; echo 'sip:0100002@$DOMAIN'; sleep 8; printf '#\n3\n'; sleep 8; printf '#\n1111\n'; sleep 8; printf '#\n2222\n'; sleep 2; printf '#\n2222\n'; sleep 8 ) | pjsua --id sip:$UE1_MSISDN@$DOMAIN --registrar sip:$DOMAIN:5060 $BASE --username $UE1_MSISDN --password $UE1_KI --local-port 5061 --outbound=sip:$PCSCF_IP:5060\;lr > /tmp/pjQ.log 2>&1 &"
+wait_pj 35 pjQ.log "Call 0 state changed to CONFIRMED"; RQB=$?
+IVR_PINFAIL=""; i=0
+while [ -z "$IVR_PINFAIL" ] && [ "$i" -lt 35 ]; do
+  sleep 2; i=$((i+1))
+  IVR_PINFAIL=$(docker logs --since 90s "$FREESWITCH" 2>&1 | grep -aoE "IVR_PIN caller=0010100001 result=fail digit=3" | head -1)
+done
+DB_PIN2=$(docker exec "$MYSQL" sh -c "mysql -u root -N -B -e \"SELECT pin FROM vas.subscriber_pin WHERE msisdn='0010100001'\"" 2>/dev/null | tr -d '\r\n ')
+report "$([ -n "$IVR_PINFAIL" ] && [ "$DB_PIN2" = "2468" ] && echo 0 || echo 1)" "FEAT-01b: confirmación distinta no persiste" "$([ -n "$IVR_PINFAIL" ] && [ "$DB_PIN2" = "2468" ] && echo 'result=fail, pin sigue 2468' || echo 'validación incorrecta')"
 kill_sip; sleep 1
 
 say "PASO 6/6 — VMS: el UE1 deja un mensaje en el buzón 0100003 (iFC)"

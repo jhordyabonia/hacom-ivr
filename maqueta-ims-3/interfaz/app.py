@@ -684,5 +684,62 @@ def api_logs():
         return jsonify({"error": str(e)}), 500
 
 
+# ---------- FEAT-01b: contraseña/PIN de servicio (self-care IVR) ----------
+MYSQL = "mims3_mysql"
+
+
+def pin_query(sql):
+    """SQL → (ok, salida). MySQL root no tiene password (mysql_init.sh)."""
+    rc, out = sh(MYSQL, f"mysql -u root -N -B -e \"{sql}\"")
+    return rc == 0, out
+
+
+@app.get("/api/pin")
+def api_pin_list():
+    ok, out = pin_query("SELECT msisdn, pin, updated_at FROM vas.subscriber_pin ORDER BY msisdn")
+    rows = []
+    for ln in out.splitlines():
+        parts = ln.split("\t")
+        if len(parts) == 3:
+            rows.append({"msisdn": parts[0], "pin": parts[1], "updated_at": parts[2]})
+    return jsonify({"ok": ok, "source": "mysql:vas.subscriber_pin", "pins": rows})
+
+
+@app.post("/api/pin/change")
+def api_pin_change():
+    """Persiste el nuevo PIN del suscriptor (lo llama el IVR vía wget)."""
+    body = request.get_json(force=True) if request.data else {}
+    caller = str(body.get("caller", "")).strip()
+    pin = str(body.get("pin", "")).strip()
+    if not re.fullmatch(r"\d{4,8}", pin):
+        return jsonify({"ok": False, "error": "pin debe ser 4–8 dígitos"}), 400
+    if not re.fullmatch(r"\d{4,16}", caller):
+        return jsonify({"ok": False, "error": "caller inválido"}), 400
+    sql = (f"INSERT INTO vas.subscriber_pin (msisdn, pin) VALUES ('{caller}', '{pin}') "
+           f"ON DUPLICATE KEY UPDATE pin = '{pin}', updated_at = NOW()")
+    rc, out = pin_query(sql)
+    if not rc:
+        return jsonify({"ok": False, "error": out.strip() or "db error"}), 500
+    return jsonify({"ok": True, "caller": caller, "pin": pin})
+
+
+@app.get("/pin")
+def pin_view():
+    """Vista HTML read-only de los PIN de servicio (persistencia visible)."""
+    ok, out = pin_query("SELECT msisdn, pin, updated_at FROM vas.subscriber_pin ORDER BY msisdn")
+    rows = ""
+    style = "<meta charset='utf-8'><h2>VAS — Contraseñas de servicio (FEAT-01b)</h2>"
+    if ok:
+        for ln in out.splitlines():
+            p = ln.split("\t")
+            if len(p) == 3:
+                rows += (f"<tr><td>{p[0]}</td><td>{p[1]}</td><td>{p[2]}</td></tr>")
+        html = (style + "<table border='1' cellpadding='6' style='border-collapse:collapse'>"
+                "<tr><th>MSISDN</th><th>PIN</th><th>Actualizado</th></tr>" + rows + "</table>")
+    else:
+        html = style + f"<p>Error consultando BD: {out}</p>"
+    return f"<html><body style='font-family:monospace'>{html}</body></html>"
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8888, debug=False)

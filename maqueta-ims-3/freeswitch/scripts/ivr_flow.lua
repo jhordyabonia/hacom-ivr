@@ -110,6 +110,26 @@ local function append_line(path, line)
   if f then f:write(line, "\n"); f:close() end
 end
 
+-- POST JSON a la API VAS (FEAT-01b: cambio de contraseña/PIN). El wget GNU del
+-- contenedor FS segfaulta; se usa busybox + timeout.
+local function http_post(url, body, timeout)
+  local f = io.popen("/bin/busybox timeout " .. tostring(timeout or 5) ..
+                     " /bin/busybox wget -q --post-data='" .. body .. "' --header=Content-Type:application/json -O - " ..
+                     url .. " 2>/dev/null")
+  if not f then return "" end
+  local out = f:read("*a")
+  f:close()
+  return out or ""
+end
+
+-- Captura <min>-<max> dígitos DTMF reutilizando el motor de menú (session:execute).
+local function collect_digits(cfg, termch, min, max, tries, prompt, varname)
+  local cmd = tostring(min) .. " " .. tostring(max) .. " " .. tostring(tries) .. " 4000 " ..
+              termch .. " " .. prompt .. " " .. cfg.invalid .. " " .. varname
+  session:execute("play_and_get_digits", cmd)
+  return session:getVariable(varname) or ""
+end
+
 -- Timestamp %Y-%m-%d %H:%M:%S
 local function now()
   local t = os.date("%Y-%m-%d %H:%M:%S")
@@ -174,6 +194,22 @@ while tries_left > 0 do
     session:streamFile(flow.invalid)
   elseif action == "playback" and file then
     session:streamFile(file)
+  elseif action == "password" then
+    -- FEAT-01b: cambio de contraseña/PIN por IVR. Pide 4+4 dígitos (nuevo y
+    -- confirmación) y persiste vía la API VAS (vas.subscriber_pin en MySQL).
+    local p1 = collect_digits(flow, term, 4, 4, 2, flow.pin_prompt, "ivr_pin1")
+    local p2 = ""
+    local result = "fail"
+    if #p1 == 4 then
+      p2 = collect_digits(flow, term, 4, 4, 2, flow.pin_confirm, "ivr_pin2")
+      if p1 == p2 then
+        local resp = http_post(flow.pin_api, '{"caller":"' .. caller .. '","pin":"' .. p1 .. '"}', 5)
+        if resp:find('"ok": true') or resp:find('"ok":true') then result = "ok" end
+      end
+    end
+    session:streamFile(result == "ok" and flow.pin_ok or flow.pin_fail)
+    freeswitch.consoleLog("notice", "IVR_PIN caller=" .. caller .. " result=" .. result ..
+                          " digit=" .. digit .. "\n")
   end
   if chosen and chosen["then"] == "bye" then
     session:hangup()

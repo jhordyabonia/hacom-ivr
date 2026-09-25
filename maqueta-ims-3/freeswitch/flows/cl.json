@@ -5,9 +5,15 @@
   "menu": "/mnt/freeswitch/audio/menu.wav",
   "invalid": "/mnt/freeswitch/audio/invalido.wav",
   "max_tries": 3,
+  "pin_prompt": "/mnt/freeswitch/audio/pin_prompt.wav",
+  "pin_confirm": "/mnt/freeswitch/audio/pin_confirm.wav",
+  "pin_ok": "/mnt/freeswitch/audio/pin_ok.wav",
+  "pin_fail": "/mnt/freeswitch/audio/pin_fail.wav",
+  "pin_api": "http://172.32.0.14:8888/api/pin/change",
   "options": [
-    { "digit": "1", "desc": "saldo",  "action": "playback", "file": "/mnt/freeswitch/audio/saldo.wav",  "then": "repeat" },
-    { "digit": "2", "desc": "ayuda",  "action": "playback", "file": "/mnt/freeswitch/audio/ayuda.wav",  "then": "repeat" },
-    { "digit": "9", "desc": "colgar", "action": "bye",       "file": null,                                "then": "bye" }
+    { "digit": "1", "desc": "saldo", "action": "playback", "file": "/mnt/freeswitch/audio/saldo.wav", "then": "repeat" },
+    { "digit": "2", "desc": "ayuda", "action": "playback", "file": "/mnt/freeswitch/audio/ayuda.wav", "then": "repeat" },
+    { "digit": "3", "desc": "cambiar_password", "action": "password", "file": null, "then": "repeat" },
+    { "digit": "9", "desc": "colgar", "action": "bye", "file": null, "then": "bye" }
   ]
 }

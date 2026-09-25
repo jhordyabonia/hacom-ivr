@@ -73,6 +73,16 @@ then
 	mysql -u root -e "FLUSH PRIVILEGES;"
 fi
 
+# Esquema VAS (FEAT-01b): contraseña/PIN de servicio del suscriptor, cambiable
+# por IVR (menú DTMF, acción "password") y visible en mims_ui (/api/pin).
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS vas CHARACTER SET utf8mb4;"
+mysql -u root -e "CREATE TABLE IF NOT EXISTS vas.subscriber_pin (
+	msisdn VARCHAR(32) NOT NULL PRIMARY KEY,
+	pin VARCHAR(16) NOT NULL,
+	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+mysql -u root -e "INSERT IGNORE INTO vas.subscriber_pin (msisdn, pin) VALUES ('0010100001','1234'),('0010100002','5678');"
+
 pkill -9 mysqld
 sleep 5
 exec mysqld_safe $@

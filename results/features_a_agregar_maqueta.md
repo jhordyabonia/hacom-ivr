@@ -4,7 +4,7 @@
 > (Core IMS + AS Frontera ISC + FreeSWITCH como AS aplicación) para cubrir las
 > funcionalidades del RFP uVAS 2026.
 > Base: `results/cruce_RFP_maqueta_FreeSWITCH.md` (trazabilidad F1–F12) y
-> estado validado E2E **17/17** (15 base + 2 de FEAT-01) + AKA (Digest-AKAv1-MD5)
+> estado validado E2E **20/20** (15 base + 3 de FEAT-01/FEAT-01b) + AKA (Digest-AKAv1-MD5)
 > demostrado.
 >
 > **Principio rector:** cada servicio VAS es un **Application Server (AS)**
@@ -19,6 +19,7 @@
 | ID | Feature | RFP | Tipo | Prioridad | Estado actual |
 |----|---------|-----|------|-----------|---------------|
 | FEAT-01 | IVR productivo (menú DTMF + BD + flujos por país) | F7 | Ampliación | P0 | **Listo** (E2E 17/17) |
+| FEAT-01b | Cambio de contraseña/PIN del suscriptor por IVR | F7 | Ampliación | P0 | **Listo** (E2E 20/20) |
 | FEAT-02 | VMS completo (mod_voicemail, MWI, recuperación) | F4 | Ampliación | P0 | VMS básico listo |
 | FEAT-03 | MCA — aviso de llamada perdida | F5 | Ampliación nativa | P0 | No |
 | FEAT-04 | Charging: CDR → MySQL + API | F9 | Ampliación nativa | P1 | No (CDR ya se genera) |
@@ -61,7 +62,8 @@ de menú interactivo** configurable y persistente.
 - Un flujo nuevo se puede desplegar **sin reiniciar FreeSWITCH**.
 - CDR de la sesión aparece en BD/UI.
 
-> **ESTADO: LISTO** (rama `feature/feat-01-ivr-dtmf`, E2E **17/17**).
+> **ESTADO: LISTO** (ramas `feature/feat-01-ivr-dtmf` + `feature/feat-01b-cambio-password`,
+> E2E **20/20**).
 > Implementado en `maqueta-ims-3/freeswitch`:
 > - `conf/dialplan/public.xml`: extensión `ivr_menu_0100002` (answer →
 >   `set ivr_flow=<pais>` → `lua ivr_flow.lua ${ivr_flow}` → hangup).
@@ -75,6 +77,40 @@ de menú interactivo** configurable y persistente.
 > - Check E2E (PASO 5b de `scripts/test_maqueta.sh`): "FEAT-01: menú DTMF
 >   (opción 1)" y "FEAT-01: CDR de opción persistido" → ambos PASS.
 > - Apto posteriormente para FEAT-09 (menu USSD) y FEAT-10 (SCE).
+
+### 2b. Feature 01b — Cambio de contraseña/PIN del suscriptor por IVR [RFP F7]
+
+**Objetivo:** que el usuario cambie su **contraseña de servicio (PIN)** con el
+mismo menú DTMF, sin tocar el Core (ni PyHSS/SIP-AKA ni el PIN del VMS).
+
+**Comportamiento esperado:**
+1. Opción del menú IVR (p.ej. `3` = "cambiar contraseña") por país en los flujos.
+2. El IVR captura el **nuevo PIN (4 dígitos)** y su **confirmación** (2 intentos).
+3. Si coincide, persiste en BD (`vas.subscriber_pin`) vía API REST del `mims_ui`.
+4. Reproduce audio de éxito/fallo y vuelve al menú; log de servicio `IVR_PIN`.
+
+**Cambios en la maqueta:**
+- BD: esquema `vas` → tabla `subscriber_pin` (`msisdn` PK, `pin`, `updated_at`);
+  creada también en `mysql/mysql_init.sh` (idempotente) para despliegues limpios.
+- `interfaz/app.py`: API `POST /api/pin/change` (upsert), `GET /api/pin`
+  (listado) y vista `GET /pin`; escritura por docker-exec a MySQL (sin lib de BD).
+- `freeswitch/scripts/ivr_flow.lua`: acción `password` — captura 4+4 dígitos con
+  `session:execute("play_and_get_digits", …)`, POST JSON con **busybox wget**
+  (el wget GNU de la imagen segfaulta) y log `IVR_PIN caller=… result=ok|fail`.
+- `freeswitch/flows/{cl,co}.json`: opción `3` → `action:"password"` + prompts y
+  URL de la API (claves `pin_prompt/confirm/ok/fail`, `pin_api`).
+- `freeswitch/audio/pin_*.wav` (8 kHz): prompt, confirmación, éxito, fallo.
+
+**Definición de hecho (aceptación):**
+- E2E (PASO 5c de `scripts/test_maqueta.sh`): cambio de contraseña (opción 3)
+  → `IVR_PIN result=ok`; PIN persistido en `vas.subscriber_pin`; y
+  confirmación distinta → `result=fail` **sin** persistir. → 3 checks PASS.
+
+> **ESTADO: LISTO** (rama `feature/feat-01b-cambio-password`, E2E **20/20**).
+> Notas: el contenedor FS no tiene curl y su `wget` GNU aborta (segv); se usa
+> `/bin/busybox timeout <n> /bin/busybox wget --post-data …`. En el test, pjsua
+> puede perder un bloque de stdin (la confirmación); el PASO 5c reenvía la
+> confirmación para hacerlo determinista.
 
 ---
 
@@ -346,8 +382,8 @@ motor de menú del SCE (FEAT-10).
 
 ## 15. Contrato de no-regresión (aplicar en cada feature)
 
-1. `bash scripts/test_maqueta.sh` → **17/17** sobre la versión actual (15 base +
-   FEAT-01); al añadir features, el contador asciende (no baja).
+1. `bash scripts/test_maqueta.sh` → **20/20** sobre la versión actual (15 base +
+   FEAT-01/FEAT-01b); al añadir features, el contador asciende (no baja).
 2. Si se toca PyHSS/S-CSCF: re-ejecutar la sonda AKA
    (`ue_aka_probe.py` → 200 OK).
 3. No se modifica la red `172.32.0.0/24` ni los puertos Cx sin actualizar
