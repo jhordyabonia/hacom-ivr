@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Sofia global config — solo cargar el perfil "external" (AS Frontera).
+  No se carga internal ni ipv6: evita conflicto de puerto 5060.
+-->
+<configuration name="sofia.conf" description="sofia Endpoint">
+
+  <global_settings>
+    <param name="log-level" value="0"/>
+    <param name="debug-presence" value="0"/>
+  </global_settings>
+
+  <profiles>
+    <X-PRE-PROCESS cmd="include" data="../sip_profiles/external.xml"/>
+  </profiles>
+
+</configuration>

@@ -1,0 +1,35 @@
+<!--
+  FreeSWITCH como AS aplicación (SIP plano, sin Asterisk).
+  Recibe INVITEs del AS Frontera (asfront) habilitados por las iFC del S-CSCF:
+    - 0100002 -> IVR de bienvenida (playback del audio 8 kHz)
+    - 0100003 -> VMS: graba el mensaje del UE en INBOX/msg*.wav
+  RTP path: UE <-> RTPEngine <-> FreeSWITCH (el mediad mediabot lo ancla RTPEngine)
+-->
+<include>
+  <context name="public">
+
+    <!-- Pausa/tono de llamada opcional; mantenemos un ACK de sesión audible -->
+    <extension name="ivr_0100002">
+      <condition field="destination_number" expression="^0100002$">
+        <action application="answer"/>
+        <action application="sleep" data="500"/>
+        <action application="playback" data="/mnt/freeswitch/ivr_bienvenida.wav"/>
+        <action application="hangup"/>
+      </condition>
+    </extension>
+
+    <!-- VMS: graba el mensaje hablado/tono del UE -->
+    <extension name="vms_0100003">
+      <condition field="destination_number" expression="^0100003$">
+        <action application="answer"/>
+        <action application="sleep" data="1000"/>
+        <action application="set" data="vms_dir=/var/lib/freeswitch/storage/vms/0100003/INBOX"/>
+        <action application="system" data="mkdir -p ${vms_dir}"/>
+        <action application="strftime" data="vms_file=${vms_dir}/msg_%Y%m%d_%H%M%S.wav"/>
+        <action application="record" data="${vms_file} 300 0 0"/>
+        <action application="hangup"/>
+      </condition>
+    </extension>
+
+  </context>
+</include>

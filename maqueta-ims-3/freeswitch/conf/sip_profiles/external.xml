@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SIP profile "external" — receive ISC INVITEs from AS Frontera (asfront).
+  - No auth (authentication handled by the IMS core via AKA before arriving here)
+  - No registration (AS role, not a UA)
+  - Serves IVR (0100002) and VMS (0100003) from public dialplan
+-->
+<profile name="external">
+  <aliases>
+    <alias name="outbound"/>
+  </aliases>
+
+  <settings>
+    <!-- No authentication: S-CSCF handles AKA auth before forwarding to AS -->
+    <param name="auth-calls" value="false"/>
+    <!-- Dialplan context: our public.xml implements IVR/VMS -->
+    <param name="context" value="public"/>
+    <!-- Accept calls from any source (IMS core via asfront) -->
+    <param name="apply-inbound-acl" value="0.0.0.0/0"/>
+    <!-- Accept registrations blindly (we don't need them) -->
+    <param name="accept-blind-reg" value="true"/>
+    <!-- Long timeout for IVR/VMS sessions -->
+    <param name="rtp-timeout-sec" value="300"/>
+    <param name="rtp-hold-timeout-sec" value="1800"/>
+    <!-- Allow caller-id override from From header -->
+    <param name="caller-id-in-from" value="true"/>
+    <!-- NAT settings for Docker -->
+    <param name="inbound-lazy-nat" value="true"/>
+    <param name="nat-whitelist" value="172.32.0.0/24"/>
+    <!-- Codec: PCMU matches the RTPEngine/UE path -->
+    <param name="inbound-codec-prefs" value="PCMU,PCMA"/>
+    <param name="outbound-codec-prefs" value="PCMU,PCMA"/>
+    <param name="disable-transcoding" value="true"/>
+  </settings>
+</profile>

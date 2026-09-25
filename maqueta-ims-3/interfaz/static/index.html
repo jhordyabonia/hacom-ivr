@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maqueta Core IMS — Interfaz</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="logo">IMS</span>
+      <div>
+        <h1>Maqueta Core IMS</h1>
+        <p id="sub">P/I/S-CSCF + HSS + RTPEngine + AS</p>
+      </div>
+    </div>
+    <div class="domain" id="domain">—</div>
+  </header>
+
+  <nav>
+    <button class="tab active" data-tab="estado">Estado</button>
+    <button class="tab" data-tab="prueba">Prueba E2E</button>
+    <button class="tab" data-tab="operacion">Operación</button>
+    <button class="tab" data-tab="vms">VMS</button>
+    <button class="tab" data-tab="config">Configuración</button>
+    <button class="tab" data-tab="logs">Logs</button>
+  </nav>
+
+  <main>
+    <!-- ======================= ESTADO ======================= -->
+    <section id="tab-estado" class="panel">
+      <div class="card">
+        <h2>Contenedores <span class="hint" id="dnsbar"></span></h2>
+        <div id="containers" class="grid"></div>
+      </div>
+      <div class="card">
+        <h2>Listeners SIP/UDP <button class="mini" onclick="loadStatus()">Actualizar</button></h2>
+        <div id="listeners" class="grid"></div>
+      </div>
+      <div class="card">
+        <h2>Resolución DNS</h2>
+        <div id="dns" class="kv"></div>
+      </div>
+    </section>
+
+    <!-- ======================= PRUEBA E2E ======================= -->
+    <section id="tab-prueba" class="panel">
+      <div class="card">
+        <h2>Prueba de verificación automática</h2>
+        <p class="desc">Registra dos terminales IMS, verifica listeners y realiza una
+          llamada del UE1 al Application Server (se espera que Asterisk reproduzca el IVR).</p>
+        <button id="run-test" class="primary">▶  Ejecutar prueba E2E</button>
+        <div id="test-summary" class="summary hidden"></div>
+        <ul id="test-results" class="test-results"></ul>
+      </div>
+    </section>
+
+    <!-- ======================= OPERACIÓN ======================= -->
+    <section id="tab-operacion" class="panel">
+      <div class="card">
+        <h2>Acciones rápidas</h2>
+        <div class="ops">
+          <button class="primary" onclick="action('register', {ue:'1'})">Registrar UE1</button>
+          <button class="primary" onclick="action('register', {ue:'2'})">Registrar UE2</button>
+          <button onclick="action('call', {ue:'1', dest:'0100002'})">Llamada UE1 → 0100002</button>
+          <button class="danger" onclick="action('stop', {})">Detener UEs</button>
+        </div>
+        <div id="op-result" class="console"><span class="dim">—</span></div>
+      </div>
+    </section>
+
+    <!-- ======================= VMS ======================= -->
+    <section id="tab-vms" class="panel">
+      <div class="card">
+        <h2>Buzón de voz (VMS) <button class="mini" onclick="loadVMS()">Actualizar</button></h2>
+        <p class="desc">El Application Server (Asterisk) y una regla iFC encaminan al buzón
+          <b>0100003</b>: el UE llama, el AS saluda (IVR + prompts vm-*), graba el mensaje y lo
+          guarda en <code>.../voicemail/default/0100003/INBOX</code> (msg*.WAV).</p>
+        <div id="vms-status" class="kv"></div>
+        <div id="vms-messages"></div>
+        <div class="ops">
+          <button class="primary" id="vms-run">▶  Prueba VMS (UE1 → 0100003)</button>
+        </div>
+        <div id="vms-result" class="console"><span class="dim">—</span></div>
+
+        <!-- ---- Nuevo mensaje desde la web ---- -->
+        <div class="card" style="margin-top:14px">
+          <h2>Enviar un mensaje desde la web</h2>
+          <p class="desc">Puedes <b>grabar</b> con el micrófono o <b>seleccionar</b> un archivo de audio
+            (cualquier formato: wav, mp3, webm…). El sistema lo convierte a PCM16 8 kHz y lo graba en
+            el buzón 0100003.</p>
+
+          <div class="ops" style="flex-wrap:wrap">
+            <button id="vms-rec" class="primary">🎙  Grabar</button>
+            <button id="vms-stop-rec" class="hidden">⏹ Detener</button>
+            <label class="primary" style="cursor:pointer">
+              📂 Seleccionar archivo
+              <input type="file" id="vms-file" accept="audio/*" style="display:none">
+            </label>
+          </div>
+
+          <audio id="vms-preview" controls class="hidden" style="width:100%;margin:10px 0"></audio>
+
+          <div class="ops">
+            <button class="primary" id="vms-send" disabled>💾 Enviar al buzón 0100003</button>
+            <span id="vms-send-status" class="dim"></span>
+          </div>
+          <div id="vms-send-result" class="console"><span class="dim">—</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= CONFIGURACIÓN ======================= -->
+    <section id="tab-config" class="panel">
+      <div class="card">
+        <h2>Suscriptores</h2>
+        <p class="desc">Datos que el UE usa para registrar y los que se envían a PyHSS al provisionar.
+          Los cambios se guardan en el volumen <code>ui_config</code>.</p>
+        <div id="config-ues"></div>
+        <div class="ops">
+          <button class="primary" onclick="saveConfig()">Guardar cambios</button>
+          <button onclick="provision()">Provisionar en PyHSS</button>
+        </div>
+        <div class="kv" id="ifc-info"></div>
+        <div id="provision-result" class="console"><span class="dim">—</span></div>
+      </div>
+    </section>
+
+    <!-- ======================= LOGS ======================= -->
+    <section id="tab-logs" class="panel">
+      <div class="card">
+        <h2>Logs de los nodos</h2>
+        <div class="ops">
+          <select id="log-select"></select>
+          <button onclick="loadLogs()">Actualizar</button>
+        </div>
+        <pre id="log-output" class="console">…</pre>
+      </div>
+    </section>
+  </main>
+
+  <footer>Maqueta local Core IMS — interfaz ligera (sin dependencias externas)</footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>

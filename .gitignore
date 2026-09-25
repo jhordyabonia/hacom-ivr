@@ -1,0 +1,17 @@
+# Ignorados del repositorio hacom-ivr
+# ---------------------------------------------------------------
+# Maquetas anteriores (referencia en results/, no versionadas aquí)
+/maqueta-ims/
+/maqueta-ims-2/
+/isabelPBX/
+
+# Capturas y grabaciones (binarios regenerables por el test E2E)
+*.pcap
+maqueta-ims-3/freeswitch/vms/**/INBOX/*.wav
+
+# Artefactos de Python
+__pycache__/
+*.pyc
+
+# Salidas de benchmark regenerables
+maqueta-ims-3/scripts/bench_*.txt

@@ -1,0 +1,331 @@
+services:
+  dns:
+    restart: unless-stopped
+    build: ./dns
+    image: mims3_dns
+    container_name: mims3_dns
+    env_file: .env
+    volumes:
+      - ./dns:/mnt/dns
+      - /etc/localtime:/etc/localtime:ro
+    expose:
+      - "53/udp"
+    networks:
+      default:
+        ipv4_address: ${DNS_IP}
+
+  redis:
+    image: redis:7-alpine
+    container_name: mims3_redis
+    command: ["redis-server", "--appendonly", "no"]
+    networks:
+      default:
+        ipv4_address: ${REDIS_IP}
+
+  mysql:
+    restart: unless-stopped
+    build: ./mysql
+    image: mims3_mysql
+    container_name: mims3_mysql
+    env_file: .env
+    volumes:
+      - mims3_database:/var/lib/mysql
+      - /etc/localtime:/etc/localtime:ro
+    expose:
+      - "3306/tcp"
+    networks:
+      default:
+        ipv4_address: ${MYSQL_IP}
+
+  rtpengine:
+    restart: unless-stopped
+    build: ./rtpengine
+    image: mims3_rtpengine
+    container_name: mims3_rtpengine
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./rtpengine:/mnt/rtpengine
+    environment:
+      - TABLE=0
+      - INTERFACE=${RTPENGINE_IP}
+      - LISTEN_NG=${RTPENGINE_IP}:2223
+      - PIDFILE=/run/ngcp-rtpengine-daemon.pid
+      - PORT_MAX=50000
+      - PORT_MIN=49000
+      - NO_FALLBACK=no
+      - TOS=184
+    expose:
+      - "2223/udp"
+    networks:
+      default:
+        ipv4_address: ${RTPENGINE_IP}
+
+  pyhss_api:
+    image: ghcr.io/nickvsnetworking/pyhss/pyhss:latest
+    container_name: mims3_pyhss_api
+    env_file: .env
+    dns: ${DNS_IP}
+    environment: &pyhss_env
+      HSS_TRANSPORT: TCP
+      CONTAINER_ROLE: api
+      HSS_BIND_IP: 0.0.0.0
+      HSS_BIND_PORT: ${PYHSS_BIND_PORT}
+      HSS_ORIGIN_HOST: hss.${IMS_DOMAIN}
+      HSS_ORIGIN_REALM: ${IMS_DOMAIN}
+      HSS_PRODUCT_NAME: pyHSS
+      HSS_MCC: ${MCC}
+      HSS_MNC: ${MNC}
+      HSS_SCSCF_POOL: sip:scscf.${IMS_DOMAIN}:6060;transport=udp
+      HSS_DEFAULT_SH_USER_DATA: default_sh_user_data.xml
+      HSS_LOCK_PROVISIONING: False
+      API_BIND_IP: 0.0.0.0
+      API_BIND_PORT: 8080
+      DATABASE_TYPE: sqlite
+      DATABASE_SERVER: unused
+      DATABASE_USERNAME: unused
+      DATABASE_PASSWORD: unused
+      DATABASE_NAME: /var/lib/pyhss/hss.db
+      REDIS_CONNECTION_TYPE: tcp
+      REDIS_HOST: ${REDIS_IP}
+      REDIS_PORT: 6379
+      LOGGING_LEVEL: DEBUG
+      LOGGING_API_FILE: /opt/pyhss/log/api.log
+      LOGGING_HSS_FILE: /opt/pyhss/log/hss.log
+      LOGGING_DIAMETER_FILE: /opt/pyhss/log/diameter.log
+    volumes:
+      - ./pyhss/maqueta_ifc.xml:/opt/pyhss/maqueta_ifc.xml:ro
+      - pyhss_db:/var/lib/pyhss
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - dns
+      - mysql
+      - redis
+    ports:
+      - "8088:8080/tcp"
+    networks:
+      default:
+        ipv4_address: ${PYHSS_IP}
+
+  pyhss_hss:
+    image: ghcr.io/nickvsnetworking/pyhss/pyhss:latest
+    container_name: mims3_pyhss_hss
+    env_file: .env
+    dns: ${DNS_IP}
+    environment:
+      <<: *pyhss_env
+      CONTAINER_ROLE: hss
+    volumes:
+      - ./pyhss/maqueta_ifc.xml:/opt/pyhss/maqueta_ifc.xml:ro
+      - ./pyhss/diameter.py:/opt/pyhss/lib/diameter.py:ro
+      - pyhss_db:/var/lib/pyhss
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - dns
+      - mysql
+      - redis
+      - pyhss_api
+    networks:
+      default:
+        ipv4_address: ${PYHSS_HSS_IP}
+
+  pyhss_diameter:
+    image: ghcr.io/nickvsnetworking/pyhss/pyhss:latest
+    container_name: mims3_pyhss_diameter
+    env_file: .env
+    dns: ${DNS_IP}
+    environment:
+      <<: *pyhss_env
+      CONTAINER_ROLE: diameter
+    volumes:
+      - ./pyhss/maqueta_ifc.xml:/opt/pyhss/maqueta_ifc.xml:ro
+      - ./pyhss/diameter.py:/opt/pyhss/lib/diameter.py:ro
+      - pyhss_db:/var/lib/pyhss
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - dns
+      - mysql
+      - redis
+      - pyhss_api
+    networks:
+      default:
+        ipv4_address: ${PYHSS_DIAMETER_IP}
+
+  icscf:
+    restart: unless-stopped
+    build: ./kamailio
+    image: mims3_kamailio
+    container_name: mims3_icscf
+    env_file: .env
+    extra_hosts:
+      - "ims.mnc001.mcc001.3gppnetwork.org:${PCSCF_IP}"
+      - "icscf.ims.mnc001.mcc001.3gppnetwork.org:${ICSCF_IP}"
+      - "scscf.ims.mnc001.mcc001.3gppnetwork.org:${SCSCF_IP}"
+    dns: ${DNS_IP}
+    environment:
+      - COMPONENT_NAME=icscf
+    entrypoint: ["/bin/bash", "/mnt/icscf/icscf_init.sh"]
+    volumes:
+      - ./icscf:/mnt/icscf
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - dns
+      - mysql
+    expose:
+      - "4060/udp"
+      - "4060/tcp"
+      - "${ICSCF_BIND_PORT}/tcp"
+    networks:
+      default:
+        ipv4_address: ${ICSCF_IP}
+
+  scscf:
+    restart: unless-stopped
+    build: ./kamailio
+    image: mims3_kamailio
+    container_name: mims3_scscf
+    env_file: .env
+    dns: ${DNS_IP}
+    environment:
+      - COMPONENT_NAME=scscf
+    entrypoint: ["/bin/bash", "/mnt/scscf/scscf_init.sh"]
+    volumes:
+      - ./scscf:/mnt/scscf
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - dns
+      - mysql
+    expose:
+      - "6060/udp"
+      - "6060/tcp"
+      - "${SCSCF_BIND_PORT}/tcp"
+    networks:
+      default:
+        ipv4_address: ${SCSCF_IP}
+
+  pcscf:
+    restart: unless-stopped
+    build: ./kamailio
+    image: mims3_kamailio
+    container_name: mims3_pcscf
+    env_file: .env
+    dns: ${DNS_IP}
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - COMPONENT_NAME=pcscf
+      - DEPLOY_MODE=4G
+    entrypoint: ["/bin/bash", "/mnt/pcscf/pcscf_init.sh"]
+    volumes:
+      - ./pcscf:/mnt/pcscf
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - dns
+      - mysql
+      - scscf
+      - rtpengine
+    expose:
+      - "5060/udp"
+      - "5060/tcp"
+      - "${PCSCF_BIND_PORT}/tcp"
+    networks:
+      default:
+        ipv4_address: ${PCSCF_IP}
+
+  asfront:
+    restart: unless-stopped
+    build: ./kamailio
+    image: mims3_kamailio
+    container_name: mims3_asfront
+    env_file: .env
+    dns: ${DNS_IP}
+    environment:
+      - COMPONENT_NAME=asfront
+    entrypoint: ["/bin/bash", "/mnt/asfront/asfront_init.sh"]
+    volumes:
+      - ./asfront:/mnt/asfront
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - dns
+      - scscf
+      - freeswitch
+    expose:
+      - "5060/udp"
+      - "5060/tcp"
+    networks:
+      default:
+        ipv4_address: ${ASFRONT_IP}
+
+  freeswitch:
+    restart: unless-stopped
+    build: ./freeswitch
+    image: mims3_freeswitch
+    container_name: mims3_freeswitch
+    env_file: .env
+    dns: ${DNS_IP}
+    volumes:
+      - ./freeswitch:/mnt/freeswitch
+      - ./freeswitch/vms:/var/lib/freeswitch/storage/vms
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - dns
+      - scscf
+    expose:
+      - "5060/udp"
+      - "5060/tcp"
+      - "16384-16484/udp"
+    networks:
+      default:
+        ipv4_address: ${FREESWITCH_IP}
+
+  softphone:
+    restart: unless-stopped
+    build: ./softphone
+    image: mims3_softphone
+    container_name: mims3_softphone
+    env_file: .env
+    dns: ${DNS_IP}
+    command: ["sleep", "infinity"]
+    volumes:
+      - ./softphone:/mnt/softphone
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - dns
+      - pcscf
+    networks:
+      default:
+        ipv4_address: ${SOFTPHONE_IP}
+
+  ui:
+    restart: unless-stopped
+    build: ./interfaz
+    image: mims3_ui
+    container_name: mims3_ui
+    env_file: .env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ui_config:/var/lib/ims-ui
+    depends_on:
+      - dns
+    ports:
+      - "8090:8888/tcp"
+    networks:
+      default:
+        ipv4_address: ${UI_IP}
+
+networks:
+  default:
+    name: mims3_network
+    ipam:
+      config:
+        - subnet: ${TEST_NETWORK}
+
+volumes:
+  mims3_database:
+    name: mims3_database
+  pyhss_db:
+    name: mims3_pyhss_db
+  ui_config:
+    name: mims3_ui_config

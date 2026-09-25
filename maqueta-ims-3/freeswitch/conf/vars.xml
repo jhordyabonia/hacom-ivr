@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  vars.xml — override de vanilla ajustado para el contenedor Docker.
+  - external_sip_ip / external_rtp_ip: en Docker la IP de SDP debe ser la del contenedor,
+    no la que devuelva stun.freeswitch.org (falla). Se fuerza a $${local_ip_v4}.
+-->
+<include>
+  <X-PRE-PROCESS cmd="set" data="domain=$${local_ip_v4}"/>
+  <X-PRE-PROCESS cmd="set" data="domain_name=$${domain}"/>
+  <X-PRE-PROCESS cmd="set" data="hold_music=local_stream://moh"/>
+  <X-PRE-PROCESS cmd="set" data="use_profile=external"/>
+  <X-PRE-PROCESS cmd="set" data="external_sip_ip=$${local_ip_v4}"/>
+  <X-PRE-PROCESS cmd="set" data="external_rtp_ip=$${local_ip_v4}"/>
+  <X-PRE-PROCESS cmd="set" data="rtp_sdes_suites=AEAD_AES_256_GCM_8|AEAD_AES_128_GCM_8|AES_CM_256_HMAC_SHA1_80|AES_CM_192_HMAC_SHA1_80|AES_CM_128_HMAC_SHA1_80|AES_CM_256_HMAC_SHA1_32|AES_CM_192_HMAC_SHA1_32|AES_CM_128_HMAC_SHA1_32|AES_CM_128_NULL_AUTH"/>
+  <X-PRE-PROCESS cmd="set" data="unroll_loops=true"/>
+  <X-PRE-PROCESS cmd="set" data="inbound_zrtp_passthru=true"/>
+  <X-PRE-PROCESS cmd="set" data="outbound_zrtp_passthru=true"/>
+  <X-PRE-PROCESS cmd="set" data="rtp_enable_ztimestamps=false"/>
+  <X-PRE-PROCESS cmd="set" data="rtp_timer_name=soft"/>
+  <X-PRE-PROCESS cmd="set" data="rtp_use_timer">false</X-PRE-PROCESS>
+  <X-PRE-PROCESS cmd="set" data="switch_rtp_bug=1"/>
+</include>

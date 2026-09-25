@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Plantilla iFC de la maqueta: enruta INVITEs (originados y hacia no registrados)
+     del UE hacia el Application Server (Asterisk) del proyecto -->
+<IMSSubscription>
+  <PrivateID>{{ iFC_vars['imsi'] }}@ims.mnc{{ iFC_vars['mnc'] }}.mcc{{ iFC_vars['mcc'] }}.3gppnetwork.org</PrivateID>
+  <ServiceProfile>
+    <PublicIdentity>
+      <Identity>sip:{{ iFC_vars['msisdn'] }}@ims.mnc{{ iFC_vars['mnc'] }}.mcc{{ iFC_vars['mcc'] }}.3gppnetwork.org</Identity>
+      <Extension>
+        <IdentityType>0</IdentityType>
+      </Extension>
+    </PublicIdentity>
+    <PublicIdentity>
+      <Identity>tel:{{ iFC_vars['msisdn'] }}</Identity>
+      <Extension>
+        <IdentityType>0</IdentityType>
+      </Extension>
+    </PublicIdentity>
+    <PublicIdentity>
+      <Identity>sip:{{ iFC_vars['imsi'] }}@ims.mnc{{ iFC_vars['mnc'] }}.mcc{{ iFC_vars['mcc'] }}.3gppnetwork.org</Identity>
+      <Extension>
+        <IdentityType>0</IdentityType>
+      </Extension>
+    </PublicIdentity>
+
+    <!-- INVITE originado por usuario registrado => AS Frontera Kamailio (ISC) -> FreeSWITCH (app) -->
+    <InitialFilterCriteria>
+      <Priority>30</Priority>
+      <TriggerPoint>
+        <ConditionTypeCNF>1</ConditionTypeCNF>
+        <SPT>
+          <ConditionNegated>0</ConditionNegated>
+          <Group>0</Group>
+          <Method>INVITE</Method>
+          <Extension></Extension>
+        </SPT>
+        <SPT>
+          <ConditionNegated>0</ConditionNegated>
+          <Group>1</Group>
+          <SessionCase>0</SessionCase>
+          <Extension></Extension>
+        </SPT>
+      </TriggerPoint>
+      <ApplicationServer>
+        <ServerName>sip:asfront.ims.mnc{{ iFC_vars['mnc'] }}.mcc{{ iFC_vars['mcc'] }}.3gppnetwork.org:5060</ServerName>
+        <DefaultHandling>0</DefaultHandling>
+      </ApplicationServer>
+    </InitialFilterCriteria>
+
+    <!-- INVITE hacia usuario no registrado (terminating-unregistered) => AS Frontera Kamailio (ISC) -> FreeSWITCH (app)
+         Permite que cualquier llamada a un destino ausente se resuelva en el AS (IVR/anuncio) -->
+    <InitialFilterCriteria>
+      <Priority>40</Priority>
+      <TriggerPoint>
+        <ConditionTypeCNF>1</ConditionTypeCNF>
+        <SPT>
+          <ConditionNegated>0</ConditionNegated>
+          <Group>0</Group>
+          <Method>INVITE</Method>
+          <Extension></Extension>
+        </SPT>
+        <SPT>
+          <ConditionNegated>0</ConditionNegated>
+          <Group>1</Group>
+          <SessionCase>2</SessionCase>
+          <Extension></Extension>
+        </SPT>
+      </TriggerPoint>
+      <ApplicationServer>
+        <ServerName>sip:asfront.ims.mnc{{ iFC_vars['mnc'] }}.mcc{{ iFC_vars['mcc'] }}.3gppnetwork.org:5060</ServerName>
+        <DefaultHandling>0</DefaultHandling>
+      </ApplicationServer>
+    </InitialFilterCriteria>
+
+  </ServiceProfile>
+</IMSSubscription>

@@ -1,0 +1,43 @@
+categoria,metrica,unidad,maqueta-ims_run1,maqueta-ims_run2,maqueta-ims-2_run1,maqueta-ims-2_run2,maqueta-ims-3_run1,mejor_valor,comentario
+Arquitectura,AS_sobre_IMS_principal,kamailio,"S-CSCF (Kamailio) con ims_isc",np,"S-CSCF (Kamailio) con ims_isc",np,"S-CSCF (Kamailio) con ims_isc",n/a,misma config 3GPP (P-CSCF/S-CSCF/I-CSCF identical salvo IP)
+Arquitectura,Nodo_AS_Media,desc,kamailio_directo_a_asterisk,np,freeswitch_b2bua_frontera,np,frontera_kamailio_a_freeswitch,n/a,mims: S-CSCF -> Asterisk directo; mims-2: S-CSCF -> FreeSWITCH (B2BUA) -> Asterisk; mims-3: S-CSCF -> AS Frontera Kamailio (ISC) -> FreeSWITCH (app IVR/VMS)
+Arquitectura,iFC_ServerName,uri,sip:asterisk.ims.mnc001.mcc001.3gppnetwork.org,np,sip:freeswitch.ims.mnc001.mcc001.3gppnetwork.org,np,sip:asfront.ims.mnc001.mcc001.3gppnetwork.org:5060,n/a,punto de entrada del AS (Frontera en mims-3)
+Arquitectura,Numero_contenedores,unidades,13,np,14,np,14,mims,freeswitch es el contenedor adicional; en mims-3 asterisk se sustituye por asfront+freeswitch
+Arquitectura,Subred_docker,ip,172.30.0.0/24,np,172.31.0.0/24,np,172.32.0.0/24,n/a,aislamiento de red docker
+Arquitectura,Identificacion_entrante_pjsip,ip,match=172.30.0.7 (S-CSCF),np,match=172.31.0.15 (FreeSWITCH),np,match=172.32.0.16 (AS Frontera),n/a,el AS identifica origen segun maqueta
+Arquitectura,DLG_AS_frontera,desc,sin_frontera,np,sin_frontera,np,record_route_NO (relay puro),np,"mims-3: la Frontera no re-etiqueta el dialogo; TM resuelve las respuestas y el ACK in-dialog vuelve via Contact/S-CSCF"
+Funcional,funcional_pass,checks,13,13,14,14,15,mims-3,maqueta-ims-3 incluye checks extra: nodo asfront + relay ISC + IVR/VMS en FreeSWITCH
+Funcional,funcional_fail,checks,0,0,0,0,0,ambos,sin fallos en ninguna corrida
+Funcional,funcional_rc,codigo,0,0,0,0,0,ambos,0 = pasa
+Funcional,duracion_test_funcional,seg,33,33,53,53,83,mims-2,"mims-3 incluye pasos VMS con tono generado en host; la duracion se mantiene en rango de mims-2"
+Registro,registro_ok,1/0,1,1,1,1,1,ambos,401->200 completo
+Registro,latencia_registro_401_200,ms,126,119,116,118,122,mims-2,promedio: 122.5 ms (mims) vs 117 ms (mims-2) vs 122 ms (mims-3) - dentro del ruido
+Llamada,llamada_confirmada,1/0,1,1,1,1,1,ambos,invitacion completada
+Llamada,setup_invite_a_confirmed,ms,9,10,32,32,10,mims,"mims-3 sin B2BUA (relay puro de Frontera): ~10 ms igual a mims sin B2BUA, mejor que mims-2 (~32 ms)"
+Llamada,ivr_reproducido,1/0,1,1,1,1,1,ambos,IVR reproducido correctamente (Asterisk en mims/2; FreeSWITCH nativo en mims-3)
+Llamada,rtpengine_engaged,1/0,1,1,1,1,1,ambos,media atravesando rtpengine (P-CSCF/AS)
+Llamada,asfront_relay_isc,1/0,np,np,np,np,1,mims-3,log 'AS-Front: re-origina a FreeSWITCH' confirma la Frontera ISC->SIP
+VMS,vms_confirmada,1/0,1,1,1,1,1,ambos,vozmail confirmado
+VMS,vms_mensaje_grabado,1/0,1,1,1,1,1,ambos,audio grabado en disco (FreeSWITCH /var/lib/freeswitch/storage/vms en mims-3)
+VMS,tiempo_hasta_grabar,seg,22,21,23,23,23,mims,"~21.5 s (mims) vs ~23 s (mims-2/mims-3): incluye recuperacion + tono de grabacion"
+Recursos,cpu_llamada_scscf,%,0.07,0.06,0.05,0.06,0.25,ambos,idéntico (0.25% en mims-3: muestreo puntual)
+Recursos,mem_llamada_scscf,MiB,58.98,56.92,53.78,54.75,64.45,mims-2,~58 vs ~54 vs ~64 MiB
+Recursos,cpu_llamada_pcscf,%,0.06,1.07,0.04,0.09,0.41,mims-2,RSS de kamailio domina (reserva -M 1024)
+Recursos,mem_llamada_pcscf,GiB,1.101,1.097,1.094,1.096,1.14,ambos,~1.1 GiB en ambos: kamailio -M 1024 reserva 1 GiB de memoria compartida
+Recursos,cpu_llamada_icscf,%,0.06,2.34,0.05,0.07,0.07,mims-2,muestreo puntual ruidoso; bajo en todas
+Recursos,mem_llamada_icscf,MiB,33.88,24.09,24.34,25.85,40.87,ambos,igual
+Recursos,cpu_llamada_asterisk,%,0.51,3.45,0.38,0.50,np,mims-2,~2% vs ~0.44% (asterisk trabajo solo; en mims-2 FreeSWITCH asume parte); eliminado en mims-3
+Recursos,mem_llamada_asterisk,MiB,71.67,52.9,51.79,51.82,np,mims-2,~62 vs ~52 MiB; eliminado en mims-3
+Recursos,cpu_llamada_freeswitch,%,np,np,3.41,1.07,1.16,mims-3,nodo AS app; en mims-3 solo IVR/VMS nativo (~1.16%)
+Recursos,mem_llamada_freeswitch,MiB,np,np,50.66,50.7,46.52,mims-3,~51 MiB (mims-2) vs ~47 MiB (mims-3, sin Asterisk)
+Recursos,cpu_llamada_asfront,%,np,np,np,np,0.04,mims-3,nueva Frontera Kamailio: CPU casi nula (relay puro)
+Recursos,mem_llamada_asfront,MiB,np,np,np,np,13.96,mims-3,nueva Frontera Kamailio: ~14 MiB
+Recursos,cpu_idle_scscf,%,0.07,2.70,0.06,0.06,0.06,ambos,idéntico
+Recursos,cpu_idle_asterisk,%,0.48,0.57,0.45,3.51,np,ambos,aleatorio muestreo; sin carga real (eliminado en mims-3)
+Footprint,size_imagen_kamailio,MB,1.92,1.92,1.92,1.92,1.92,igual,misma imagen en todas (reutilizada para asfront)
+Footprint,size_imagen_freeswitch,MB,np,np,267,267,267,mims-2,AS app presente en mims-2 y mims-3
+Footprint,size_imagen_asterisk,MB,337,337,337,337,np,mims,eliminada en mims-3 (FreeSWITCH nativo IVR/VMS)
+Footprint,size_imagen_rtpengine,MB,1260,1260,1260,1260,1260,igual,idéntica
+Puertos,ui_host_port,tcp,8090,np,8090,np,8090,mims-2,las tres exponen UI en 8090 -> no corren simultaneas en este equipo
+Puertos,pyhss_api_host_port,tcp,8080 (override sin publicar),np,8088,np,8088,mims-2,8088 publicado en mims-2 y mims-3
+Otro,corridas_ejecutadas,n,2,2,2,2,1,ambos,secuenciales (una maqueta a la vez) para no sesgar por CPU compartida
