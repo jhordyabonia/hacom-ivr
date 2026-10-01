@@ -73,6 +73,16 @@ then
 	mysql -u root -e "FLUSH PRIVILEGES;"
 fi
 
+# FEAT-02 (VMS): PIN de los buzones por MSISDN. Idempotente: los PINs seed solo
+# se insertan si el MSISDN aún no existe (no machaca cambios de la UI).
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS vas CHARACTER SET utf8mb4;"
+mysql -u root -e "CREATE TABLE IF NOT EXISTS vas.subscriber_pin (
+  msisdn VARCHAR(20) NOT NULL PRIMARY KEY,
+  pin VARCHAR(8) NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);"
+mysql -u root -e "INSERT IGNORE INTO vas.subscriber_pin (msisdn, pin) VALUES ('0010100001','1234'),('0010100002','5678');"
+
 pkill -9 mysqld
 sleep 5
 exec mysqld_safe $@

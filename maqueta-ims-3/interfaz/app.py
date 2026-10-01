@@ -32,9 +32,13 @@ FREESWITCH = "mims3_freeswitch"
 ASFRONT = "mims3_asfront"
 PCSCF = "mims3_pcscf"
 PYHSS_HSS = "mims3_pyhss_hss"
+MYSQL = "mims3_mysql"
 
 VM_MAILBOX = "0100003"
 VMS_DIR = "/var/lib/freeswitch/storage/vms"
+# Buzón FEAT-02 (mod_voicemail): storage <base>/voicemail/<profile>/<domain>/<mailbox>
+VM2_BASE = "/var/lib/freeswitch/storage/voicemail/default"
+VM2_DOMAIN = os.environ.get("IMS_DOMAIN", "ims.mnc001.mcc001.3gppnetwork.org")
 # Silencio inicial que el AS reproduce antes de empezar a grabar (Answer ->
 # Sleep ~1s -> grabación) ≈ 1-2 s desde CONFIRMED. El padding coloca el
 # contenido justo cuando arranca la grabación del mensaje.
@@ -155,6 +159,16 @@ def vms_count(mailbox=VM_MAILBOX):
     """Número de mensajes de voz (msg*.wav) en la bandeja INBOX del buzón."""
     rc, out = sh(FREESWITCH,
                  f"ls {VMS_DIR}/{mailbox}/INBOX/msg*.wav 2>/dev/null | wc -l")
+    try:
+        return int(out.strip() or 0)
+    except ValueError:
+        return 0
+
+
+def vm2_count(mailbox):
+    """Mensajes (msg_*.wav) del buzón mod_voicemail (FEAT-02, path por dominio)."""
+    rc, out = sh(FREESWITCH,
+                 f"ls {VM2_BASE}/{VM2_DOMAIN}/{mailbox}/msg_*.wav 2>/dev/null | wc -l")
     try:
         return int(out.strip() or 0)
     except ValueError:
@@ -336,6 +350,29 @@ def result(ok, name, detail=""):
     return {"status": "PASS" if ok else "FAIL", "name": name, "detail": detail}
 
 
+# ---------- helpers PIN (FEAT-02: buzón por MSISDN, recuperación) ----------
+def ensure_pin_schema():
+    """Esquema vas.subscriber_pin idempotente (el contenedor mysql puede estar
+    arrancando; se tolera el fallo y el schema se garantiza en mysql_init.sh)."""
+    rc, _ = sh(MYSQL, """mysql -u root -e "CREATE DATABASE IF NOT EXISTS vas CHARACTER SET utf8mb4;
+CREATE TABLE IF NOT EXISTS vas.subscriber_pin (
+  msisdn VARCHAR(20) NOT NULL PRIMARY KEY,
+  pin VARCHAR(8) NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+INSERT IGNORE INTO vas.subscriber_pin (msisdn, pin) VALUES
+  ('0010100001','1234'), ('0010100002','5678');" """)
+    return rc == 0
+
+
+def pin_auth(caller, pin):
+    """True si <pin> coincide con vas.subscriber_pin del MSISDN.
+    SQL literal: valores sanitizados en los endpoints (dígitos)."""
+    rc, out = sh(MYSQL,
+                 f"mysql -u root -N -e \"SELECT COUNT(*) FROM vas.subscriber_pin WHERE msisdn='{caller}' AND pin='{pin}'\"")
+    return rc == 0 and out.strip() == "1"
+
+
 # ---------- endpoints ----------
 @app.get("/")
 def index():
@@ -345,6 +382,31 @@ def index():
 @app.get("/health")
 def health():
     return jsonify({"ok": docker_ok()}), (200 if docker_ok() else 503)
+
+
+@app.get("/api/pin")
+def api_pin():
+    """Lista de PINs provisionados (debug/operación, FEAT-02)."""
+    ensure_pin_schema()
+    rc, out = sh(MYSQL, "mysql -u root -N -e 'SELECT msisdn, pin FROM vas.subscriber_pin ORDER BY msisdn'")
+    rows = []
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 2:
+            rows.append({"msisdn": parts[0], "pin": parts[1]})
+    return jsonify({"ok": rc == 0, "pins": rows})
+
+
+@app.get("/api/pin/auth")
+def api_pin_auth():
+    """Autentica el PIN del MSISDN (usado por vm_pin.lua al recuperar el buzón)."""
+    ensure_pin_schema()
+    caller = request.args.get("caller", "")
+    pin = request.args.get("pin", "")
+    if not (caller.isdigit() and pin.isdigit()):
+        return jsonify({"ok": False, "error": "caller/pin deben ser digitos"}), 400
+    ok = pin_auth(caller, pin)
+    return jsonify({"ok": ok, "caller": caller})
 
 
 @app.get("/api/status")
@@ -598,6 +660,10 @@ def api_vms():
         mp = vms_messages(mb)
         mailboxes.append({"mailbox": mb, "messages": cnt,
                           "last": mp[0]["name"] if mp else None, "list": mp})
+    for mb in ("0010100001", "0010100002"):
+        cnt = vm2_count(mb)
+        mailboxes.append({"mailbox": mb, "messages": cnt,
+                          "last": None, "list": []})
     rc, out = sh(FREESWITCH, "ls /mnt/freeswitch/ivr_bienvenida.wav 2>/dev/null")
     return jsonify({"mailboxes": mailboxes, "prompts": rc == 0})
 

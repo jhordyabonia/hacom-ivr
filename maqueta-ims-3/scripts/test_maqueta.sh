@@ -69,15 +69,12 @@ for pair in "mims3_scscf:6060" "mims3_icscf:4060" "mims3_pcscf:5060" "mims3_asfr
   fi
 done
 
-say "PASO 4/6 — Registro IMS de UE1 y UE2 (401 -> 200 OK + Service-Route)"
+say "PASO 4/6 — Registro IMS de UE1 (401 -> 200 OK + Service-Route)"
 kill_sip
 docker exec -d "$SOFTPHONE" sh -c "pjsua --id sip:$UE1_MSISDN@$DOMAIN --registrar sip:$DOMAIN:5060 $BASE --username $UE1_MSISDN --password $UE1_KI --local-port 5061 > /tmp/pj1.log 2>&1"
-docker exec -d "$SOFTPHONE" sh -c "pjsua --id sip:$UE2_MSISDN@$DOMAIN --registrar sip:$DOMAIN:5060 $BASE --username $UE2_MSISDN --password $UE2_KI --local-port 5062 > /tmp/pj2.log 2>&1"
 wait_pj 15 pj1.log "registration success, status=200"; R1=$?
-wait_pj 15 pj2.log "registration success, status=200"; R2=$?
 docker exec "$SOFTPHONE" sh -c "grep -aq '401 Unauthorized - Challenging the UE' /tmp/pj1.log && grep -aq 'Service-Route' /tmp/pj1.log"; R1B=$?
 report "$([ $R1 -eq 0 ] && [ $R1B -eq 0 ] && echo 0 || echo 1)" "registro UE1 (200 OK + 401 + Service-Route)" "IMSI $UE1_IMSI"
-report "$([ $R2 -eq 0 ] && echo 0 || echo 1)" "registro UE2 (200 OK)" "IMSI $UE2_IMSI"
 kill_sip; sleep 1
 
 say "PASO 5/6 — Llamada UE1 -> AS (iFC -> IVR en FreeSWITCH)"
@@ -148,6 +145,42 @@ while [ "$V_AFTER" -eq 0 ] && [ "$i" -lt 50 ]; do
 done
 report "$([ $RVC -eq 0 ] && echo 0 || echo 1)" "VMS: llamada UE1 -> buzón (CONFIRMED)" "UE1 -> 0100003 vía iFC"
 report "$([ "$V_AFTER" -gt 0 ] && echo 0 || echo 1)" "VMS: mensaje grabado en INBOX" "msg*.wav: 0 -> ${V_AFTER:-0} (Buzón 0100003)"
+kill_sip; sleep 1
+
+say "PASO 6b/6 — FEAT-02: VMS completo (mod_voicemail + MWI + recuperación)"
+# FEAT-02: VMS completo. El UE1 llama al UE2 (no registrado) → el mensaje se
+# graba en el buzón del MSISDN de UE2 (mod_voicemail) y se genera un MWI
+# (NOTIFY message-summary) que se entrega al UE2 cuando se registra.
+# Luego, el UE2 llama a 0100004 (recuperación) → autentica con PIN y
+# escucha/borra el mensaje.
+VM2_DIR="/var/lib/freeswitch/storage/voicemail/default/ims.mnc001.mcc001.3gppnetwork.org/0010100002"
+docker exec "$FREESWITCH" sh -c "rm -rf ${VM2_DIR} 2>/dev/null; true"
+kill_sip
+# 1. Desregistrar UE2 (REGISTER con Expires: 0 + Digest AKA)
+python3 "$SCRIPT_DIR/deregister_ue2.py" || echo "  [WARN] deregister_ue2.py falló (continúa)"
+sleep 3
+# 2. Llamar de UE1 a UE2 (no registrado) → mensaje al buzón de UE2
+docker exec -d "$SOFTPHONE" sh -c "rm -f /tmp/pjV2.log; ( until grep -aq 'Response msg 200/REGISTER' /tmp/pjV2.log 2>/dev/null; do sleep 0.2; done; echo m; sleep 0.7; echo 'sip:0010100002@$DOMAIN'; sleep 18; echo h; sleep 4 ) | pjsua --id sip:$UE1_MSISDN@$DOMAIN --registrar sip:$DOMAIN:5060 $BASE --username $UE1_MSISDN --password $UE1_KI --local-port 5061 --play-file /tmp/left_msg.wav --auto-play --outbound=sip:$PCSCF_IP:5060\;lr > /tmp/pjV2.log 2>&1 &"
+wait_pj 25 pjV2.log "Call 0 state changed to CONFIRMED"; RV2C=$?
+VM2_AFTER=0; i=0
+while [ "$VM2_AFTER" -eq 0 ] && [ "$i" -lt 50 ]; do
+  sleep 3
+  VM2_AFTER=$(docker exec "$FREESWITCH" sh -c "ls ${VM2_DIR}/msg_*.wav 2>/dev/null | wc -l")
+  i=$((i+1))
+done
+report "$([ $RV2C -eq 0 ] && echo 0 || echo 1)" "FEAT-02: llamada UE1 -> buzón UE2 (CONFIRMED)" "UE1 -> 0010100002 vía iFC (terminating-unregistered)"
+report "$([ "$VM2_AFTER" -gt 0 ] && echo 0 || echo 1)" "FEAT-02: mensaje grabado en buzón UE2" "msg_*.wav: 0 -> ${VM2_AFTER:-0} (Buzón 0010100002)"
+# 3. Registrar UE2 → debe recibir MWI (NOTIFY message-summary)
+docker exec -d "$SOFTPHONE" sh -c "pjsua --id sip:$UE2_MSISDN@$DOMAIN --registrar sip:$DOMAIN:5060 $BASE --username $UE2_MSISDN --password $UE2_KI --local-port 5062 > /tmp/pjR2.log 2>&1 &"
+sleep 5
+MWI_LOG=$(docker logs --since 30s mims3_scscf 2>&1 | grep -a "MWI_DELIVER" | head -1)
+report "$([ -n "$MWI_LOG" ] && echo 0 || echo 1)" "FEAT-02: MWI entregado al registrar UE2" "$([ -n "$MWI_LOG" ] && echo 'MWI_DELIVER en log S-CSCF' || echo 'sin MWI_DELIVER')"
+# 4. Recuperación: UE2 llama a 0100004 → autentica con PIN → escucha/borra
+docker exec -d "$SOFTPHONE" sh -c "rm -f /tmp/pjR3.log; ( until grep -aq 'Response msg 200/REGISTER' /tmp/pjR3.log 2>/dev/null; do sleep 0.2; done; echo m; sleep 0.7; echo 'sip:0100004@$DOMAIN'; sleep 8; printf '#\n5\n6\n7\n8\n'; sleep 5; printf '1\n'; sleep 5; printf '7\n'; sleep 3; echo h; sleep 4 ) | pjsua --id sip:$UE2_MSISDN@$DOMAIN --registrar sip:$DOMAIN:5060 $BASE --username $UE2_MSISDN --password $UE2_KI --local-port 5062 --outbound=sip:$PCSCF_IP:5060\;lr > /tmp/pjR3.log 2>&1 &"
+wait_pj 25 pjR3.log "Call 0 state changed to CONFIRMED"; RR3=$?
+sleep 10
+VMS_PIN_LOG=$(docker logs --since 60s "$FREESWITCH" 2>&1 | grep -a "VMS_PIN ok" | head -1)
+report "$([ $RR3 -eq 0 ] && [ -n "$VMS_PIN_LOG" ] && echo 0 || echo 1)" "FEAT-02: recuperación con PIN (0100004)" "$([ -n "$VMS_PIN_LOG" ] && echo 'VMS_PIN ok en log FreeSWITCH' || echo 'PIN no autenticado')"
 kill_sip; sleep 1
 
 echo "=================== Resultado ==================="
