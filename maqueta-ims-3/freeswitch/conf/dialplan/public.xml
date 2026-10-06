@@ -5,7 +5,7 @@
                  Flujos: freeswitch/flows/<pais>.json ; motor: freeswitch/scripts/ivr_flow.lua
                  Persiste elección en /mnt/freeswitch/logs/ivr_cdr.jsonl (CDR de opción).
     - 0100003 -> VMS: graba el mensaje del UE en INBOX/msg*.wav
-    - 00101xxxxxx -> FEAT-02 VMS: deposit del buzón por MSISDN (mod_voicemail) + MWI.
+    - 00101xxxxx -> FEAT-02 VMS: deposit del buzón por MSISDN (mod_voicemail) + MWI (SUBSCRIBE/NOTIFY).
     - 0100004 -> FEAT-02 VMS: recuperación por PIN (vm_pin.lua) + menú de escucha/borrado.
   RTP path: UE <-> RTPEngine <-> FreeSWITCH (el ancla de RTP lo hace RTPEngine)
 -->
@@ -36,23 +36,20 @@
       </condition>
     </extension>
 
-    <!-- FEAT-02: deposit VMS por MSISDN (buzón = MSISDN completo 00101xxxxxx).
-         La llamada llega vía iFC (orig/term-unregistered) en cuanto el S-CSCF no
-         puede entregar al UE: mod_voicemail graba el mensaje en el buzón del
-         MSISDN y, al terminar, se dispara el MWI (NOTIFY message-summary) hacia el
-         S-CSCF para que lo entregue al UE registrado o lo encaje hasta re-registro. -->
+    <!-- FEAT-02: deposit VMS por MSISDN (TS 24.604 CDIV -> VMS). El INVITE llega
+         por la iFC terminating-unregistered (SessionCase 2) cuando el UE destino
+         no está registrado. mod_voicemail graba en el buzón del MSISDN y emite
+         MESSAGE_WAITING: mod_sofia envía el NOTIFY message-summary a las
+         suscripciones MWI vigentes del dueño (TS 24.606). -->
     <extension name="vms_deposit_subscriber">
-      <condition field="destination_number" expression="^001010000([0-9])$">
+      <condition field="destination_number" expression="^(00101[0-9]{5})$">
         <action application="answer"/>
         <action application="sleep" data="500"/>
         <action application="set" data="vm_domain=ims.mnc001.mcc001.3gppnetwork.org"/>
-        <action application="set" data="vm_id=${destination_number}"/>
-        <action application="set" data="storage_dir=/var/lib/freeswitch/storage/voicemail/default/${vm_domain}/${vm_id}"/>
-        <action application="system" data="mkdir -p ${storage_dir}"/>
-        <action application="record" data="${storage_dir}/msg_%Y%m%d_%H%M%S.wav 300 0 0"/>
-        <action application="log" data="INFO VMS_DEPOSIT id=${vm_id} dir=${storage_dir}"/>
-        <action application="system" data="/usr/share/freeswitch/scripts/mwi_notify.sh ${vm_id}"/>
-        <action application="log" data="INFO VMS_DEPOSIT MWI notificado id=${vm_id}"/>
+        <action application="set" data="skip_greeting=true"/>
+        <action application="set" data="skip_instructions=true"/>
+        <action application="log" data="INFO VMS_DEPOSIT start id=$1"/>
+        <action application="voicemail" data="default ${vm_domain} $1"/>
         <action application="hangup"/>
       </condition>
     </extension>

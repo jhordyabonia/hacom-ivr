@@ -19,7 +19,7 @@
 | ID | Feature | RFP | Tipo | Prioridad | Estado actual |
 |----|---------|-----|------|-----------|---------------|
 | FEAT-01 | IVR productivo (menú DTMF + BD + flujos por país) | F7 | Ampliación | P0 | **Listo** (E2E 17/17) |
-| FEAT-02 | VMS completo (mod_voicemail, MWI, recuperación) | F4 | Ampliación | P0 | VMS básico listo |
+| FEAT-02 | VMS completo (mod_voicemail, MWI, recuperación) | F4 | Ampliación | P0 | **Listo** (E2E 22/22, 3GPP 27/27) |
 | FEAT-03 | MCA — aviso de llamada perdida | F5 | Ampliación nativa | P0 | No |
 | FEAT-04 | Charging: CDR → MySQL + API | F9 | Ampliación nativa | P1 | No (CDR ya se genera) |
 | FEAT-05 | Reporting + Monitoring en `mims_ui` | F10/F11 | Ampliación | P1 | Interfaz base lista |
@@ -101,6 +101,16 @@ bienvenida del dueño, MWI, recuperación y borrado por el usuario).
 - UE1 deja mensaje en el buzón de UE2 (desregistrado) y UE2 recibe MWI.
 - UE2 recupera y borra el mensaje.
 - E2E: +2 checks (MWI, recovery).
+
+> **ESTADO: LISTO** (rama `feature/feat-02`, E2E **22/22**, verificación de
+> captura **27/27** reglas 3GPP). Detalle: `entregables-feat-02/02_feat02/FEAT-02_VMS_IMPLEMENTACION.md`.
+> - Depósito: iFC P40 *terminating-unregistered* (SAR UNREGISTERED_USER en el
+>   S-CSCF + parche `ims_isc`) → `voicemail default <dominio> <MSISDN>`.
+> - MWI estándar TS 24.606: SUBSCRIBE `message-summary` (iFC P10) → NOTIFY
+>   dentro del diálogo, `yes` tras depósito y `no` tras borrado.
+> - Recuperación `0100004`: PIN (vas.subscriber_pin) + menú escuchar/borrar sobre
+>   la API de mod_voicemail (`vm_pin.lua`).
+> - Toda la señalización de los UEs con IMS-AKA + IPsec ESP (TS 33.203).
 
 ---
 
@@ -346,8 +356,9 @@ motor de menú del SCE (FEAT-10).
 
 ## 15. Contrato de no-regresión (aplicar en cada feature)
 
-1. `bash scripts/test_maqueta.sh` → **17/17** sobre la versión actual (15 base +
-   FEAT-01); al añadir features, el contador asciende (no baja).
+1. `bash scripts/test_maqueta.sh` → **22/22** sobre la versión actual (15 base +
+   FEAT-01 + SA IPsec + FEAT-02); al añadir features, el contador asciende (no baja).
+   `bash scripts/capture_iteration.sh <dir>` → verificación de captura 27/27.
 2. Si se toca PyHSS/S-CSCF: re-ejecutar la sonda AKA
    (`ue_aka_probe.py` → 200 OK).
 3. No se modifica la red `172.32.0.0/24` ni los puertos Cx sin actualizar

@@ -8,6 +8,8 @@
 <profile name="external">
   <aliases>
     <alias name="outbound"/>
+    <!-- dominio IMS servido por este AS (MWI: mod_sofia resuelve el perfil por dominio) -->
+    <alias name="ims.mnc001.mcc001.3gppnetwork.org"/>
   </aliases>
 
   <settings>
@@ -31,5 +33,15 @@
     <param name="inbound-codec-prefs" value="PCMU,PCMA"/>
     <param name="outbound-codec-prefs" value="PCMU,PCMA"/>
     <param name="disable-transcoding" value="true"/>
+    <!-- FEAT-02 / TS 24.606: el AS de buzón acepta SUBSCRIBE message-summary
+         (enrutado por iFC del S-CSCF vía asfront) y emite NOTIFY de MWI dentro
+         del diálogo cuando mod_voicemail deposita o borra mensajes. -->
+    <param name="manage-presence" value="true"/>
+    <param name="presence-hosts" value="ims.mnc001.mcc001.3gppnetwork.org"/>
+    <param name="force-subscription-domain" value="ims.mnc001.mcc001.3gppnetwork.org"/>
+    <param name="force-subscription-expires" value="60"/>
+    <!-- El suscriptor ya fue autenticado por el core IMS (IMS-AKA en el
+         S-CSCF) y la petición llega por ISC: el AS no vuelve a retar. -->
+    <param name="auth-subscriptions" value="false"/>
   </settings>
 </profile>

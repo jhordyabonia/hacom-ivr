@@ -61,7 +61,8 @@ scscf pcscf rtpengine asfront freeswitch softphone ui`.
 | `maqueta-ims-3/` | **La maqueta entregable** (todo el código y configuración). |
 | `maqueta-ims-3/docker-compose.yml` + `.env` | Orquestación y parámetros (IPs, dominio, claves de test). |
 | `maqueta-ims-3/{dns,mysql,pyhss,icscf,scscf,pcscf,asfront,freeswitch,rtpengine,softphone,interfaz}/` | Configuración de cada servicio. |
-| `maqueta-ims-3/scripts/` | `test_maqueta.sh` (E2E 15/15), `provision_hss.sh`, `ue_aka_probe.py` (AKA), `bench_maqueta.sh`. |
+| `maqueta-ims-3/scripts/` | `test_maqueta.sh` (E2E 22/22), `capture_iteration.sh` (E2E bajo captura + verificación 3GPP), `check_3gpp.py` (27 reglas, AKA/ESP verificados), `provision_hss.sh`, `ue_aka_probe.py` (AKA), `bench_maqueta.sh`. |
+| `maqueta-ims-3/softphone/` | UE IMS: pjsua parcheado (`ims_ext.c`: IMS-AKA + sec-agree), `ims-ipsec.sh` (SA ESP), `scripts/ue.sh` (lanzador del UE). |
 | `maqueta-ims-3/pyhss/diameter.py` | Parche persistente de PyHSS (UAR/MAR por MSISDN); montado `:ro` en hss/diameter. |
 | `doc/` | **RFP original**: `20260817 uVAS RFP 2026.md`. |
 | `results/` | Análisis y evidencia: diagnóstico 3GPP, cruce RFP↔FreeSWITCH, comparativa de maquetas, plan de trabajo, manuales y guiones. |
@@ -81,8 +82,10 @@ scscf pcscf rtpengine asfront freeswitch softphone ui`.
 - **Puertos libres** (mapeados a host): `8090` (UI), `4443` (no requerido por mims3), etc.
 
 > ⚠️ El atajo `docker compose up` construye o descarga imágenes; la primera vez
-> toma varios minutos. No se necesitan privilegios `--privileged` ni IPsec de
-> kernel (la negociación Gm se demuestra a nivel SIP).
+> toma varios minutos. IPsec ESP en Gm usa el `xfrm` del kernel del host: el
+> P-CSCF corre `privileged` y el softphone con `NET_ADMIN`/`NET_RAW` (módulos
+> `esp4`/`xfrm_user`, se cargan solos en kernels Linux estándar). La red
+> `mims3_network` usa **MTU 9000** (solo afecta al bridge del laboratorio).
 
 ---
 
@@ -150,11 +153,17 @@ registro IMS UE1/UE2 (401 → 200 OK + Service-Route) → llamada UE1→AS iFC
 (CONFIRMED + IVR `ivr_bienvenida.wav` en FreeSWITCH + log `asfront` re-origina +
 `RTPEngine engaged`) → VMS graba mensaje en buzón `0100003`.
 
-### Paso 6 — Demostrar autenticación IMS AKA (Digest-AKAv1-MD5)
+### Paso 6 — Autenticación IMS AKA (Digest-AKAv1-MD5) e IPsec
 
-pjsua (sin IPsec/ISIM) no calcula AKA; la **sonda** completa el flujo AKA real
-(envía `Authorization` pre-auth con IMPI = IMSI, calcula `RES` con Milenage y
-responde el reto del S-CSCF):
+Desde FEAT-02 el propio E2E registra los UEs con **IMS-AKA + IPsec ESP** (pjsua
+parcheado, `softphone/scripts/ue.sh`). Para verificar las capturas:
+
+```bash
+bash scripts/capture_iteration.sh ../entregables-feat-02/03_iteraciones/iter-NN
+# -> test_maqueta.log (22/22), maqueta_ims_sip_only.pcap, check_3gpp.md (27/27)
+```
+
+La **sonda** independiente sigue disponible (AKA sin IPsec):
 
 ```bash
 # Copiar la sonda y ejecutarla (Dockerfile no la monta; se copia en cada compose up)
@@ -216,28 +225,30 @@ docker exec mims3_pyhss_hss python3 /tmp/ue_aka_probe.py
 | VMS: `Recording was 0 seconds long` | pjsua con `--null-audio` no emite RTP | Generar audio real (tono 45 s) e inyectarlo (`test_maqueta.sh` paso 6). |
 | `RTPEngine engaged` ausente | El INVITE bypasa el P-CSCF | Forzar `--outbound=sip:172.32.0.8:5060;lr`. |
 | Tras recrear contenedores, la sonda AKA no existe | `ue_aka_probe.py` no está montado | Re-ejecutar `docker cp scripts/ue_aka_probe.py mims3_pyhss_hss:/tmp/`. |
-| IPsec: errores `netlink` al arrancar P-CSCF | Sin privilegios de kernel en Docker | Ruido esperado y NO funcional: la negociación Gm se demuestra a nivel SIP. |
+| IPsec: `delete_unused_sa(): ... netlink` en el P-CSCF | Limpieza de SA no usadas de `ims_ipsec_pcscf` | Ruido sin efecto funcional; las SA ESP reales se crean (`ip xfrm state` en `mims3_pcscf`). |
+| UE: `sec-agree: fallo instalando SA` | SA residuales en el softphone | `docker exec mims3_softphone sh -c "ip xfrm state flush; ip xfrm policy flush"`. |
+| Softphone comercial (Zoiper/Linphone) no registra (403) | Solo se admite IMS-AKA | Perfil Digest no-3GPP opcional: `WITH_NON3GPP_DIGEST` en `scscf/scscf.cfg` (solo DEV). |
 | Red `172.32.0.0/24` colisiona con otra | .env | Cambiar `TEST_NETWORK` y las IPs de `.env` (ocuparse de que DNS/compose coincidan). |
 
 ---
 
 ## 8. Estado de conformidad 3GPP (resumen)
 
-Ver detalle y evidencia en `results/diagnostico_cumplimiento_3gpp.md`.
+Ver detalle y evidencia en `entregables-feat-02/01_verificacion_3gpp/INFORME_CUMPLIMIENTO_3GPP.md` (y el histórico en `results/diagnostico_cumplimiento_3gpp.md`).
 
 | Elemento | Estado |
 |---|---|
 | Autenticación **Digest-AKAv1-MD5** E2E (Cx MAR/MAA + Milenage) | ✅ (`ue_aka_probe.py` → 200 OK) |
 | `ck`/`ik` no llegan al UE en la 401 | ✅ (strip en P-CSCF) |
-| Negotiation Gm `Security-Client/Server/Verify` (nivel SIP) | ✅ |
+| sec-agree `Security-Client/Server/Verify` + **IPsec ESP real** en Gm (TS 33.203) | ✅ (ICV verificado en la captura) |
 | IMPU formal `sip:<MSISDN>@dominio`, IMPI en `Authorization` | ✅ |
 | UAR/MAR con identidad pública (MSISDN) en PyHSS | ✅ (parche montado) |
-| INVITE con `P-Access-Network-Info` / `P-Preferred-Identity` | ✅ (P-CSCF inserta) |
+| INVITE con `P-Access-Network-Info` / `P-Preferred-Identity` / MMTEL | ✅ (las aporta el UE; P-CSCF asierta PAI) |
 | `Contact` con `+g.3gpp.icsi-ref`/`+g.3gpp.smsip` | ✅ |
-| Codecs AMR/AMR-WB (TS 26.114) | 🟡 Red AMR-ready (`mod_amr/amrwb`); falta cliente MTSI para E2E |
-| Túnel IPsec ESP real | ⚠️ Fuera de alcance Docker (sin kernel IPsec); negociado a nivel SIP |
+| Codecs AMR/AMR-WB (TS 26.114) | ✅ (oferta del UE con AMR-WB/AMR + telephone-event) |
+| MWI SUBSCRIBE/NOTIFY (TS 24.606) y desvío a buzón de no registrado | ✅ (FEAT-02) |
 
-**E2E:** `bash scripts/test_maqueta.sh` → **PASS 15 / FAIL 0**.
+**E2E:** `bash scripts/test_maqueta.sh` → **PASS 22 / FAIL 0** · verificación de captura `check_3gpp.py` → **27/27** (ver `entregables-feat-02/`).
 
 ---
 
@@ -263,7 +274,7 @@ Cruce completo y por-funcionalidad en `results/cruce_RFP_maqueta_FreeSWITCH.md`.
 
 ```bash
 # E2E completo
-bash maqueta-ims-3/scripts/test_maqueta.sh                       # 15/15
+bash maqueta-ims-3/scripts/test_maqueta.sh                       # 22/22
 
 # Autenticación AKA (Digest-AKAv1-MD5)
 docker cp maqueta-ims-3/scripts/ue_aka_probe.py mims3_pyhss_hss:/tmp/
@@ -283,7 +294,7 @@ bash maqueta-ims-3/scripts/bench_maqueta.sh mims3
   el montaje `:ro` de `pyhss/diameter.py`; el resto de cambios (p.ej. reinicios
   de CSCF) es declarativo en `docker-compose.yml`.
 - **El E2E es el contrato**: cualquier cambio en PCSCF/S-CSCF/PyHSS debe cerrar
-  con `test_maqueta.sh` → 15/15 y, si toca autenticación, repetir la sonda AKA.
+  con `test_maqueta.sh` → 22/22 (y `capture_iteration.sh` → 27/27) y, si toca autenticación, repetir la sonda AKA.
 - La rama principal es el estado "demo-ready"; los cambios se prueban primero
   contra la maqueta local antes de commitear.
 

@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Plantilla iFC de la maqueta: enruta INVITEs (originados y hacia no registrados)
-     del UE hacia el Application Server (Asterisk) del proyecto -->
+<!-- Plantilla iFC de la maqueta (TS 29.228 Anexo B / TS 23.218):
+       P10  SUBSCRIBE Event: message-summary (originating)   -> AS buzón (MWI, TS 24.606)
+       P30  INVITE a número de servicio 010000[2-4] (originating) -> AS (IVR/VMS)
+       P40  INVITE a usuario no registrado (terminating-unregistered) -> AS buzón (deposit)
+     Todos los AS se alcanzan por ISC en sip:asfront...:5060 (Frontera -> FreeSWITCH). -->
 <IMSSubscription>
   <PrivateID>{{ iFC_vars['imsi'] }}@ims.mnc{{ iFC_vars['mnc'] }}.mcc{{ iFC_vars['mcc'] }}.3gppnetwork.org</PrivateID>
   <ServiceProfile>
@@ -23,7 +26,43 @@
       </Extension>
     </PublicIdentity>
 
-    <!-- INVITE originado por usuario registrado => AS Frontera Kamailio (ISC) -> FreeSWITCH (app) -->
+    <!-- MWI (TS 24.606): SUBSCRIBE message-summary del suscriptor => AS de buzón -->
+    <InitialFilterCriteria>
+      <Priority>10</Priority>
+      <TriggerPoint>
+        <ConditionTypeCNF>1</ConditionTypeCNF>
+        <SPT>
+          <ConditionNegated>0</ConditionNegated>
+          <Group>0</Group>
+          <Method>SUBSCRIBE</Method>
+          <Extension></Extension>
+        </SPT>
+        <SPT>
+          <ConditionNegated>0</ConditionNegated>
+          <Group>1</Group>
+          <SIPHeader>
+            <Header>Event</Header>
+            <Content>message-summary</Content>
+          </SIPHeader>
+          <Extension></Extension>
+        </SPT>
+        <SPT>
+          <ConditionNegated>0</ConditionNegated>
+          <Group>2</Group>
+          <SessionCase>0</SessionCase>
+          <Extension></Extension>
+        </SPT>
+      </TriggerPoint>
+      <ApplicationServer>
+        <ServerName>sip:asfront.ims.mnc{{ iFC_vars['mnc'] }}.mcc{{ iFC_vars['mcc'] }}.3gppnetwork.org:5060</ServerName>
+        <DefaultHandling>0</DefaultHandling>
+      </ApplicationServer>
+    </InitialFilterCriteria>
+
+    <!-- INVITE originado hacia un número de servicio (IVR 0100002, VMS 0100003,
+         recuperación de buzón 0100004) => AS Frontera (ISC) -> FreeSWITCH.
+         Las llamadas a otros suscriptores NO disparan esta iFC y siguen la
+         lógica terminating del S-CSCF (entrega al UE o iFC P40 si no registrado). -->
     <InitialFilterCriteria>
       <Priority>30</Priority>
       <TriggerPoint>
@@ -38,6 +77,12 @@
           <ConditionNegated>0</ConditionNegated>
           <Group>1</Group>
           <SessionCase>0</SessionCase>
+          <Extension></Extension>
+        </SPT>
+        <SPT>
+          <ConditionNegated>0</ConditionNegated>
+          <Group>2</Group>
+          <RequestURI>sip:010000[2-4]@</RequestURI>
           <Extension></Extension>
         </SPT>
       </TriggerPoint>

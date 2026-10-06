@@ -1,0 +1,35 @@
+=================== Test maqueta Core IMS (maqueta-ims-3) ===================
+Dominio: ims.mnc001.mcc001.3gppnetwork.org
+[ PASO 1/6 — Contenedores arriba ]
+  [PASS] contenedores arriba (14/14)
+[ PASO 2/6 — DNS (A del dominio -> P-CSCF) ]
+  [PASS] resolución DNS ahostsv4  (ims.mnc001.mcc001.3gppnetwork.org -> 172.32.0.8 (esperado 172.32.0.8))
+[ PASO 3/6 — Listeners SIP/UDP de los nodos ]
+  [PASS] listener SIP/UDP mims3_scscf:6060
+  [PASS] listener SIP/UDP mims3_icscf:4060
+  [PASS] listener SIP/UDP mims3_pcscf:5060
+  [PASS] listener SIP/UDP mims3_asfront:5060
+  [PASS] listener SIP/UDP mims3_freeswitch:5060
+[ PASO 4/6 — Registro IMS de UE1 (IMS-AKA 401 -> SA IPsec -> 200 OK + Service-Route) ]
+  [PASS] registro UE1 IMS-AKA (401 AKAv1-MD5 + 200 OK + Service-Route)  (IMPI 001011234567890@ims.mnc001.mcc001.3gppnetwork.org)
+  [PASS] sec-agree: SA IPsec ESP UE<->P-CSCF  (SA en P-CSCF: 8)
+[ PASO 5/6 — Llamada UE1 -> AS (iFC -> IVR en FreeSWITCH) ]
+  [FAIL] llamada UE1 CONFIRMED  (INVITE -> 200 OK -> ACK)
+  [FAIL] FreeSWITCH reproduce IVR  (playback ivr_bienvenida.wav)
+  [PASS] AS Frontera relay ISC -> FS  (log AS-Front re-origina)
+  [FAIL] RTPEngine engaged (P-CSCF)  (medios reemplazados por RTPEngine)
+[ PASO 5b/6 — FEAT-01: menú DTMF del IVR (país CL, dígito 1 = saldo) ]
+  [FAIL] FEAT-01: menú DTMF (opción 1)  (DTMF no ejecutó acción)
+  [FAIL] FEAT-01: CDR de opción persistido  (sin fila nueva digit=1)
+[ PASO 6/6 — VMS: el UE1 deja un mensaje en el buzón 0100003 (iFC) ]
+  [FAIL] VMS: llamada UE1 -> buzón (CONFIRMED)  (UE1 -> 0100003 vía iFC)
+  [FAIL] VMS: mensaje grabado en INBOX  (msg*.wav: 0 -> 0 (Buzón 0100003))
+[ PASO 6b/6 — FEAT-02: VMS completo (mod_voicemail + MWI + recuperación) ]
+  [FAIL] FEAT-02: llamada UE1 -> UE2 no registrado desviada al buzón  (iFC terminating-unregistered -> VMS_DEPOSIT id=0010100002)
+  [FAIL] FEAT-02: mensaje en buzón mod_voicemail de UE2  (vm_boxcount: 0000 -> 0000)
+  [FAIL] FEAT-02: MWI (SUBSCRIBE/NOTIFY message-summary) al UE2  (sin NOTIFY MWI)
+  [FAIL] FEAT-02: recuperación con PIN (0100004), escucha y borrado  (PIN no autenticado)
+  [FAIL] FEAT-02: MWI actualizado tras borrar  (sin NOTIFY de buzón vacío)
+=================== Resultado ===================
+PASS: 10   FAIL: 12
+ESTADO: FALLO — revisar docs/paso_a_paso.md (sección 15)

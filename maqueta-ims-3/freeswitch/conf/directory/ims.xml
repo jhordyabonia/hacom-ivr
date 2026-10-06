@@ -1,0 +1,34 @@
+<!--
+  Directorio del dominio IMS (FEAT-02): un buzón mod_voicemail por MSISDN.
+  La identidad ya viene autenticada por el Core IMS (IMS-AKA en el S-CSCF) y el
+  PIN de recuperación se valida contra vas.subscriber_pin (vm_pin.lua), por eso
+  aquí no hay password SIP ni vm-password.
+-->
+<include>
+  <domain name="ims.mnc001.mcc001.3gppnetwork.org">
+    <params>
+      <param name="dial-string" value="error/user_not_registered"/>
+    </params>
+    <variables>
+      <variable name="user_context" value="public"/>
+    </variables>
+    <groups>
+      <group name="ims">
+        <users>
+          <user id="0010100001">
+            <params>
+              <param name="vm-enabled" value="true"/>
+              <param name="vm-skip-instructions" value="true"/>
+            </params>
+          </user>
+          <user id="0010100002">
+            <params>
+              <param name="vm-enabled" value="true"/>
+              <param name="vm-skip-instructions" value="true"/>
+            </params>
+          </user>
+        </users>
+      </group>
+    </groups>
+  </domain>
+</include>

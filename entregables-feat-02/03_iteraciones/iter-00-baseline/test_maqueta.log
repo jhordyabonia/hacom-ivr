@@ -1,0 +1,42 @@
+=================== Test maqueta Core IMS (maqueta-ims-3) ===================
+Dominio: ims.mnc001.mcc001.3gppnetwork.org
+[ PASO 1/6 — Contenedores arriba ]
+  [PASS] contenedores arriba (14/14)
+[ PASO 2/6 — DNS (A del dominio -> P-CSCF) ]
+  [PASS] resolución DNS ahostsv4  (ims.mnc001.mcc001.3gppnetwork.org -> 172.32.0.8 (esperado 172.32.0.8))
+[ PASO 3/6 — Listeners SIP/UDP de los nodos ]
+  [PASS] listener SIP/UDP mims3_scscf:6060
+  [PASS] listener SIP/UDP mims3_icscf:4060
+  [PASS] listener SIP/UDP mims3_pcscf:5060
+  [PASS] listener SIP/UDP mims3_asfront:5060
+  [PASS] listener SIP/UDP mims3_freeswitch:5060
+[ PASO 4/6 — Registro IMS de UE1 (401 -> 200 OK + Service-Route) ]
+  [PASS] registro UE1 (200 OK + 401 + Service-Route)  (IMSI 001011234567890)
+[ PASO 5/6 — Llamada UE1 -> AS (iFC -> IVR en FreeSWITCH) ]
+  [PASS] llamada UE1 CONFIRMED  (INVITE -> 200 OK -> ACK)
+  [PASS] FreeSWITCH reproduce IVR  (playback ivr_bienvenida.wav)
+  [PASS] AS Frontera relay ISC -> FS  (log AS-Front re-origina)
+  [PASS] RTPEngine engaged (P-CSCF)  (medios reemplazados por RTPEngine)
+[ PASO 5b/6 — FEAT-01: menú DTMF del IVR (país CL, dígito 1 = saldo) ]
+  [PASS] FEAT-01: menú DTMF (opción 1)  (IVR_ACTION digit=1 action=playback)
+  [PASS] FEAT-01: CDR de opción persistido  (ivr_cdr.jsonl digit=1 action=playback)
+[ PASO 6/6 — VMS: el UE1 deja un mensaje en el buzón 0100003 (iFC) ]
+  [PASS] VMS: llamada UE1 -> buzón (CONFIRMED)  (UE1 -> 0100003 vía iFC)
+  [PASS] VMS: mensaje grabado en INBOX  (msg*.wav: 0 -> 1 (Buzón 0100003))
+[ PASO 6b/6 — FEAT-02: VMS completo (mod_voicemail + MWI + recuperación) ]
+[INFO] Desregistrando 0010100002 en 172.32.0.8:5060
+[INFO] Paso 1: Enviando REGISTER sin autorización...
+[INFO] Recibido 401 Unauthorized
+[INFO] Nonce: 2e099b0645d948908a181429a820d85a
+[INFO] Paso 2: Enviando REGISTER con Authorization y Expires: 0...
+[ERROR] No se recibió 200 OK. Respuesta: SIP/2.0 401 Unauthorized - Challenging the UE
+Via: SIP/2.0/UDP 0.0.0.0:0;rport=45993;received=172.32.0.1;branch=z9hG4bK-dereg-1791255940-2
+From: <sip:0010100002@ims.mnc001.mcc001.3gppnetwork.org>;ta
+  [WARN] deregister_ue2.py falló (continúa)
+  [FAIL] FEAT-02: llamada UE1 -> buzón UE2 (CONFIRMED)  (UE1 -> 0010100002 vía iFC (terminating-unregistered))
+  [FAIL] FEAT-02: mensaje grabado en buzón UE2  (msg_*.wav: 0 -> 0 (Buzón 0010100002))
+  [FAIL] FEAT-02: MWI entregado al registrar UE2  (sin MWI_DELIVER)
+  [FAIL] FEAT-02: recuperación con PIN (0100004)  (PIN no autenticado)
+=================== Resultado ===================
+PASS: 16   FAIL: 4
+ESTADO: FALLO — revisar docs/paso_a_paso.md (sección 15)

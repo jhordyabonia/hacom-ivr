@@ -288,6 +288,10 @@ services:
     container_name: mims3_softphone
     env_file: .env
     dns: ${DNS_IP}
+    # IPsec ESP en Gm (TS 33.203): el UE instala sus SA con ip xfrm / iptables.
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
     command: ["sleep", "infinity"]
     volumes:
       - ./softphone:/mnt/softphone
@@ -319,6 +323,11 @@ services:
 networks:
   default:
     name: mims3_network
+    # MTU 9000 en el bridge del laboratorio: la señalización IMS (INVITE con SDP
+    # AMR, REGISTER con Path/Security-*, ~2 kB) viaja sin fragmentación IP, de
+    # modo que el filtro "tshark -Y sip -w" conserva mensajes completos.
+    driver_opts:
+      com.docker.network.driver.mtu: "9000"
     ipam:
       config:
         - subnet: ${TEST_NETWORK}
