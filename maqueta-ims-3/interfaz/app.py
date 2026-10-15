@@ -13,6 +13,7 @@ import json
 import math
 import os
 import re
+import shlex
 import struct
 import tarfile
 import time
@@ -51,15 +52,15 @@ CONTAINERS = [
     "mims3_freeswitch", "mims3_softphone", "mims3_ui",
 ]
 
-LISTENERS = [  # (contenedor, puerto, comando_para_comprobar, patrón)
-    ("mims3_scscf", "6060", "ss -lun", ":6060 "),
-    ("mims3_icscf", "4060", "ss -lun", ":4060 "),
-    ("mims3_pcscf", "5060", "ss -lun", ":5060 "),
-    ("mims3_asfront", "5060", "ss -lun", ":5060 "),
-    ("mims3_freeswitch", "5060", "ss -lun", ":5060 "),
+LISTENERS = [  # (contenedor, puerto SIP/UDP)
+    ("mims3_scscf", "6060"),
+    ("mims3_icscf", "4060"),
+    ("mims3_pcscf", "5060"),
+    ("mims3_asfront", "5060"),
+    ("mims3_freeswitch", "5060"),
 ]
 
-BASE_ARGS = f" --realm {DOMAIN} --no-tcp --null-audio --log-level 4 "
+SWARM_MODE = os.environ.get("SWARM_MODE", "").lower() in {"1", "true", "yes"}
 
 DEFAULT_UES = {
     "1": {"imsi": "001011234567890", "msisdn": "0010100001",
@@ -73,30 +74,98 @@ DEFAULT_UES = {
 CONFIG_DIR = "/var/lib/ims-ui"
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
+CONTAINER_GROUPS = {
+    "mims3_dns": "core",
+    "mims3_icscf": "core",
+    "mims3_scscf": "core",
+    "mims3_pcscf": "core",
+    "mims3_rtpengine": "core",
+    "mims3_asfront": "core",
+    "mims3_mysql": "database",
+    "mims3_redis": "database",
+    "mims3_pyhss_api": "database",
+    "mims3_pyhss_hss": "database",
+    "mims3_pyhss_diameter": "database",
+    "mims3_freeswitch": "ivr",
+    "mims3_softphone": "ivr",
+    "mims3_ui": "ivr",
+}
+
 user = os.environ.get("USER", "root")
-if user == "root":
+if user == "root" and SWARM_MODE:
+    clients = {
+        group: docker.DockerClient(
+            base_url=os.environ[f"DOCKER_API_{group.upper()}"],
+            version="auto",
+        )
+        for group in ("core", "database", "ivr")
+    }
+elif user == "root":
     try:
-        client = docker.from_env()
-    except Exception:
-        client = None
+        local_client = docker.from_env()
+    except docker.errors.DockerException:
+        local_client = None
+    clients = {group: local_client for group in ("core", "database", "ivr")}
 else:
-    client = None
+    clients = {group: None for group in ("core", "database", "ivr")}
 
 app = Flask(__name__)
 
 
 # ---------- helpers ----------
 def docker_ok():
-    return client is not None
+    return all(client is not None for client in clients.values())
+
+
+def container_client(name):
+    group = CONTAINER_GROUPS.get(name)
+    if group is None:
+        raise ValueError(f"Contenedor desconocido: {name}")
+    client = clients[group]
+    if client is None:
+        raise RuntimeError("Socket de Docker no disponible")
+    return client
+
+
+def get_container(name):
+    client = container_client(name)
+    if SWARM_MODE:
+        matches = client.containers.list(
+            filters={"label": f"com.docker.swarm.service.name={name}"},
+        )
+        if not matches:
+            raise RuntimeError(f"No hay tarea Swarm activa para {name}")
+        container = matches[0]
+        container.reload()
+        return container
+    return client.containers.get(name)
+
+
+def container_ipv4(name):
+    container = get_container(name)
+    container.reload()
+    networks = container.attrs.get("NetworkSettings", {}).get("Networks", {})
+    for network in networks.values():
+        address = network.get("IPAddress")
+        if address:
+            return address
+    return None
 
 
 def sh(ct, cmd, timeout=15):
     """Ejecuta un comando dentro de un contenedor y devuelve (exit_code, salida)."""
     try:
-        r = client.containers.get(ct).exec_run(["sh", "-c", cmd])
+        r = get_container(ct).exec_run(["sh", "-c", cmd])
         return r.exit_code, r.output.decode(errors="replace")
     except Exception as e:  # noqa: BLE001
         return 1, f"ERROR: {e}"
+
+
+def resolve_ipv4(container, hostname):
+    rc, out = sh(container, f"getent ahostsv4 {shlex.quote(hostname)}")
+    if rc != 0 or not out.strip():
+        return None
+    return out.splitlines()[0].split()[0]
 
 
 def wait_for(ct, log, pattern, timeout_s):
@@ -115,21 +184,71 @@ def registered(log):
     return rc == 0
 
 
+def ue_command(ue, *args):
+    """Construye el comando del UE IMS con los datos de configuración actuales."""
+    c = load_config()[ue]
+    pcscf_ip = container_ipv4(PCSCF)
+    if not pcscf_ip:
+        raise RuntimeError("No se pudo determinar la IP activa de la tarea P-CSCF")
+    env = {
+        f"UE{ue}_IMSI": c["imsi"],
+        f"UE{ue}_MSISDN": c["msisdn"],
+        f"UE{ue}_KI": c["ki"],
+        "IMS_PCSCF_IP": pcscf_ip,
+    }
+    assignments = " ".join(f"{key}={shlex.quote(value)}" for key, value in env.items())
+    command = f"{assignments} /mnt/softphone/scripts/ue.sh {shlex.quote(ue)}"
+    if args:
+        command += " " + shlex.join(args)
+    return command
+
+
+def listener_up(name, port):
+    """Check a UDP listener with either ss or netstat, depending on the image."""
+    rc, out = sh(name, "ss -lun 2>/dev/null || netstat -lun 2>/dev/null")
+    return rc == 0 and f":{port} " in out
+
+
+def pjsua_diagnostics(log):
+    """Return useful UE startup/SIP lines with authentication material removed."""
+    rc, out = sh(SOFTPHONE, f"cat /tmp/{shlex.quote(log)}")
+    if rc != 0:
+        return ["No se pudo leer el log del UE"]
+
+    diagnostics = []
+    for line in out.splitlines():
+        if not re.search(
+            r"Response msg|SIP/2\.0 [45]\d\d|401 Unauthorized|"
+            r"registration|error|failed|not found|unknown option|unrecognized|"
+            r"could not|cannot",
+            line,
+            re.IGNORECASE,
+        ):
+            continue
+        line = re.sub(
+            r"(?i)(?:WWW-Authenticate|Authorization|Authentication-Info|"
+            r"Security-(?:Client|Server|Verify))\s*:[^\r\n]*",
+            "[auth header redacted]",
+            line,
+        )
+        line = re.sub(r"\b\d{15}\b", "[IMSI]", line)
+        line = re.sub(r"\b\d{10}\b", "[MSISDN]", line)
+        diagnostics.append(line[:300])
+    return diagnostics[-12:] or ["El log está vacío o no contiene errores SIP"]
+
+
 def ue_call(ue, dest, log="pjC.log"):
     """Llamada determinista: pjsua registra; un escritor retrasado por el pipe ordena
     la llamada ('m') en cuanto el REGISTER recibe 200 OK. Si la URI se pasa al
     arrancar, pjsua llama antes de registrar y el S-CSCF responde 403
     'You must register first with a S-CSCF'. La consola de pjsua solo procesa
     comandos vía pipe (no vía FIFO), y el 'sleep' evita el hangup por EOF."""
-    c = load_config()[ue]
     kill_sip()
-    launcher = (f"( until grep -aq 'Response msg 200/REGISTER' /tmp/{log} "
+    launcher = (f"rm -f /tmp/{log}; "
+                f"( until grep -aq 'Response msg 200/REGISTER' /tmp/{log} "
                 f"2>/dev/null; do sleep 0.2; done; echo m; sleep 0.5; "
                 f"echo 'sip:{dest}@{DOMAIN}'; sleep 20 ) | "
-                f"pjsua --id sip:{c['imsi']}@{DOMAIN} --registrar sip:{DOMAIN}:5060"
-                f"{BASE_ARGS}--username {c['imsi']} --password {c['ki']}"
-                f" --local-port {c['port']} "
-                f"--outbound=sip:{PCSCF_IP}:5060\\;lr "
+                f"{ue_command(ue)} "
                 f"> /tmp/{log} 2>&1 &")
     sh(SOFTPHONE, f"rm -f /tmp/{log}; {launcher}")
     confirmed, _ = wait_for(SOFTPHONE, log, "Call 0 state changed to CONFIRMED", 25)
@@ -143,9 +262,9 @@ def launch_pjsua(ue, extra=""):
     c = DEFAULT_UES[ue]
     # IMPORTANTE: tail -f /dev/null mantiene el stdin abierto; si pjsua recibe EOF
     # (comando lanzado con & sin redirección) cuelga la llamada en curso.
-    cmd = (f"tail -f /dev/null | pjsua --id sip:{c['imsi']}@{DOMAIN} --registrar sip:{DOMAIN}:5060"
-           f"{BASE_ARGS}--username {c['imsi']} --password {c['ki']}"
-           f" --local-port {c['port']} {extra} > /tmp/{c['log']} 2>&1 &")
+    args = shlex.split(extra)
+    cmd = (f"rm -f /tmp/{c['log']}; tail -f /dev/null | "
+           f"{ue_command(ue, *args)} > /tmp/{c['log']} 2>&1 &")
     sh(SOFTPHONE, "pkill -9 -f pjsua; sleep 1", timeout=10)
     return sh(SOFTPHONE, cmd, timeout=10)
 
@@ -211,7 +330,7 @@ def vms_read_file(mailbox, msg):
     """Devuelve los bytes del audio de un mensaje (o None si no existe)."""
     path = f"{VMS_DIR}/{mailbox}/INBOX/{msg}"
     try:
-        r = client.containers.get(FREESWITCH).exec_run(["cat", path])
+        r = get_container(FREESWITCH).exec_run(["cat", path])
         return r.output if r.exit_code == 0 else None
     except Exception:  # noqa: BLE001
         return None
@@ -229,7 +348,7 @@ def inject_wav(name, data):
         tar.addfile(ti, io.BytesIO(data))
     tf.seek(0)
     try:
-        client.containers.get(SOFTPHONE).put_archive("/tmp", tf)
+        get_container(SOFTPHONE).put_archive("/tmp", tf)
         return True
     except Exception:  # noqa: BLE001
         return False
@@ -290,7 +409,6 @@ def vms_call(ue="1", mailbox=VM_MAILBOX, log="pjV.log", say_ms=None):
     `say_ms` (duración del wav web, en ms) recorta el tiempo de grabación:
     con el tono fijo se graban ~14 s; con un mensaje web se cuelga dur+6 s
     (los prompts `vm-*` consumen ~4 s antes de empezar a grabar)."""
-    c = load_config()[ue]
     before = vms_count(mailbox)
     kill_sip()
     # El mensaje web vive en /tmp/web_msg.wav (no toca el tono left_msg.wav),
@@ -301,14 +419,11 @@ def vms_call(ue="1", mailbox=VM_MAILBOX, log="pjV.log", say_ms=None):
     # s hablando antes de colgar: determinista 18; web = padding(≈10s de prompts)
     # + duración + holgura
     talk = round(say_ms / 1000) + PROMPT_PAD_S + 3 if say_ms else 18
-    launcher = (f"( until grep -aq 'Response msg 200/REGISTER' /tmp/{log} "
+    launcher = (f"rm -f /tmp/{log}; "
+                f"( until grep -aq 'Response msg 200/REGISTER' /tmp/{log} "
                 f"2>/dev/null; do sleep 0.2; done; echo m; sleep 0.7; "
                 f"echo 'sip:{mailbox}@{DOMAIN}'; sleep {talk}; echo h; sleep 4 ) | "
-                f"pjsua --id sip:{c['imsi']}@{DOMAIN} --registrar sip:{DOMAIN}:5060"
-                f"{BASE_ARGS}--username {c['imsi']} --password {c['ki']}"
-                f" --local-port {c['port']} "
-                f"--play-file {play} --auto-play "
-                f"--outbound=sip:{PCSCF_IP}:5060\\;lr "
+                f"{ue_command(ue, '--play-file', play, '--auto-play')} "
                 f"> /tmp/{log} 2>&1 &")
     sh(SOFTPHONE, f"rm -f /tmp/{log}; {launcher}")
     confirmed, _ = wait_for(SOFTPHONE, log, "Call 0 state changed to CONFIRMED", 25)
@@ -416,7 +531,7 @@ def api_status():
         return jsonify({"error": "Socket de Docker no disponible"}), 503
     for name in CONTAINERS:
         try:
-            c = client.containers.get(name)
+            c = get_container(name)
             state = c.attrs.get("State", {})
             data["containers"].append({
                 "name": name,
@@ -428,15 +543,18 @@ def api_status():
         except Exception:  # noqa: BLE001
             data["containers"].append({"name": name, "running": False, "status": "not found"})
     rc, out = sh(SOFTPHONE, f"getent ahostsv4 {DOMAIN}")
+    expected_pcscf_ip = (
+        resolve_ipv4(SOFTPHONE, PCSCF) if SWARM_MODE else PCSCF_IP
+    )
     data["dns"] = {
         "domain": DOMAIN,
         "ip": out.splitlines()[0].split()[0] if rc == 0 and out.strip() else None,
-        "expected": PCSCF_IP,
+        "expected": expected_pcscf_ip,
+        "configured": PCSCF_IP,
     }
-    for name, port, cmd, pat in LISTENERS:
-        rc, out = sh(name, cmd)
+    for name, port in LISTENERS:
         data["listeners"].append({
-            "container": name, "port": port, "up": rc == 0 and pat in out,
+            "container": name, "port": port, "up": listener_up(name, port),
         })
     return jsonify(data)
 
@@ -451,7 +569,7 @@ def api_test():
     up = 0
     for name in CONTAINERS:
         try:
-            if client.containers.get(name).attrs["State"]["Running"]:
+            if get_container(name).attrs["State"]["Running"]:
                 up += 1
         except Exception:  # noqa: BLE001
             pass
@@ -464,13 +582,19 @@ def api_test():
         ip = out.splitlines()[0].split()[0]
     except IndexError:
         ip = None
-    results.append(result(rc == 0 and ip == PCSCF_IP, "Resolución DNS",
-                          f"{DOMAIN} -> {ip} (esperado {PCSCF_IP})"))
+    expected_pcscf_ip = (
+        resolve_ipv4(SOFTPHONE, PCSCF) if SWARM_MODE else PCSCF_IP
+    )
+    results.append(result(
+        rc == 0 and ip is not None and expected_pcscf_ip is not None
+        and ip == expected_pcscf_ip,
+        "Resolución DNS",
+                          f"{DOMAIN} -> {ip} (esperado {expected_pcscf_ip or 'IP P-CSCF no disponible'})"))
 
     # 3. listeners SIP/UDP
-    for name, port, cmd, pat in LISTENERS:
-        rc, out = sh(name, cmd)
-        results.append(result(rc == 0 and pat in out, f"Listener {name}:{port}", f"via {cmd.split()[0]}"))
+    for name, port in LISTENERS:
+        results.append(result(listener_up(name, port), f"Listener {name}:{port}",
+                              "ss/netstat"))
 
     # 4. registro IMS
     kill_sip()
@@ -481,11 +605,13 @@ def api_test():
                          "Response msg 200/REGISTER", 20)
         ok = ok and sh(SOFTPHONE, f"grep -a 'Response msg 200/REGISTER' /tmp/{ues[ue]['log']}")[0] == 0
         if tag == "UE1":
-            rc, out = sh(SOFTPHONE, f"grep -a '401 Unauthorized - Challenging the UE' /tmp/{ues['1']['log']} && grep -a 'Service-Route' /tmp/{ues['1']['log']}")
+            rc, out = sh(SOFTPHONE, f"grep -aE 'Response msg 401/REGISTER|401 Unauthorized' /tmp/{ues['1']['log']} && grep -a 'Service-Route' /tmp/{ues['1']['log']}")
             ok = ok and rc == 0
-            det = "401 -> 200 OK + Service-Route" if ok else "fallo (revisar paso_a_paso §15)"
+            det = ("401 -> 200 OK + Service-Route" if ok else
+                   "fallo: " + " | ".join(pjsua_diagnostics(ues["1"]["log"])))
         else:
-            det = "200 OK" if ok else "fallo (revisar paso_a_paso §15)"
+            det = ("200 OK" if ok else
+                   "fallo: " + " | ".join(pjsua_diagnostics(ues[ue]["log"])))
         results.append(result(ok, f"Registro IMS {tag}", det))
     kill_sip()
 
@@ -495,9 +621,16 @@ def api_test():
     results.append(result(ok, "Llamada UE1 -> AS (CONFIRMED)",
                           "registro previo " + ("OK" if reg_ok else "fallido") +
                           " · INVITE -> 100 -> 200 OK -> ACK" if ok else "no se confirmó el diálogo"))
-    time.sleep(2)
-    astdout = client.containers.get(FREESWITCH).logs(since=int(before)).decode(errors="replace")
-    pcout = client.containers.get(PCSCF).logs(since=int(before)).decode(errors="replace")
+    # FreeSWITCH escribe su consola con buffer (sin TTY): las líneas llegan a
+    # `docker logs` con varios segundos de retraso, así que se sondea un tiempo.
+    deadline = time.time() + 12
+    while True:
+        time.sleep(2)
+        astdout = get_container(FREESWITCH).logs(since=int(before)).decode(errors="replace")
+        pcout = get_container(PCSCF).logs(since=int(before)).decode(errors="replace")
+        if ("ivr_bienvenida.wav" in astdout and
+                "RTPEngine engaged for Application Server" in pcout) or time.time() > deadline:
+            break
     lab = f"durante los últimos {(time.time()-before):.0f}s"
     results.append(result("ivr_bienvenida.wav" in astdout,
                           "FreeSWITCH reproduce IVR", lab))
@@ -624,10 +757,7 @@ def api_register():
     c = load_config()[ue]
     launch_pjsua(ue)
     ok, _ = wait_for(SOFTPHONE, c["log"], "Response msg 200/REGISTER", 20)
-    rc, out = sh(SOFTPHONE, f"cat /tmp/{c['log']}")
-    lines = [ln for ln in out.splitlines()
-             if any(k in ln for k in ("401 Unauthorized", "200/REGISTER",
-                                      "Service-Route", "500 Server", "403 Forbidden", "404"))]
+    lines = pjsua_diagnostics(c["log"])
     ok = ok and sh(SOFTPHONE, f"grep -a 'Service-Route' /tmp/{c['log']}")[0] == 0
     return jsonify({"ok": ok, "ue": ue, "lines": lines[-12:]})
 
@@ -744,7 +874,7 @@ def api_logs():
     name = request.args.get("name", PCSCF)
     tail = int(request.args.get("tail", "80"))
     try:
-        out = client.containers.get(name).logs(tail=tail).decode(errors="replace")
+        out = get_container(name).logs(tail=tail).decode(errors="replace")
         return jsonify({"name": name, "logs": out.splitlines()})
     except Exception as e:  # noqa: BLE001
         return jsonify({"error": str(e)}), 500

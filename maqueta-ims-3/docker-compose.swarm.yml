@@ -1,0 +1,408 @@
+services:
+  dns:
+    build: !reset null
+    container_name: !reset null
+    restart: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    dns: !reset []
+    volumes:
+      - /home/administrator/maqueta-ims-3/dns:/mnt/dns
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - dns
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == core-ims
+
+  redis:
+    container_name: !reset null
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - redis
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == database
+
+  mysql:
+    build: !reset null
+    container_name: !reset null
+    restart: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - mysql
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == database
+
+  rtpengine:
+    build: !reset null
+    container_name: !reset null
+    restart: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    volumes:
+      - /home/administrator/maqueta-ims-3/rtpengine:/mnt/rtpengine
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - rtpengine
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == core-ims
+
+  pyhss_api:
+    container_name: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    dns: !reset []
+    volumes: !override
+      - /home/administrator/maqueta-ims-3/pyhss/maqueta_ifc.xml:/opt/pyhss/maqueta_ifc.xml:ro
+      - pyhss_db:/var/lib/pyhss
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      REDIS_HOST: mims3_redis
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - pyhss-api
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == database
+
+  pyhss_hss:
+    container_name: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    dns: !reset []
+    volumes: !override
+      - /home/administrator/maqueta-ims-3/pyhss/maqueta_ifc.xml:/opt/pyhss/maqueta_ifc.xml:ro
+      - /home/administrator/maqueta-ims-3/pyhss/diameter.py:/opt/pyhss/lib/diameter.py:ro
+      - pyhss_db:/var/lib/pyhss
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      REDIS_HOST: mims3_redis
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == database
+
+  pyhss_diameter:
+    container_name: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    dns: !reset []
+    volumes: !override
+      - /home/administrator/maqueta-ims-3/pyhss/maqueta_ifc.xml:/opt/pyhss/maqueta_ifc.xml:ro
+      - /home/administrator/maqueta-ims-3/pyhss/diameter.py:/opt/pyhss/lib/diameter.py:ro
+      - pyhss_db:/var/lib/pyhss
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      REDIS_HOST: mims3_redis
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - hss.${IMS_DOMAIN}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == database
+
+  icscf:
+    build: !reset null
+    container_name: !reset null
+    restart: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    extra_hosts: !reset []
+    dns: !reset []
+    volumes:
+      - /home/administrator/maqueta-ims-3/icscf:/mnt/icscf
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - icscf
+          - icscf.${IMS_DOMAIN}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == core-ims
+
+  scscf:
+    build: !reset null
+    container_name: !reset null
+    restart: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    dns: !reset []
+    volumes:
+      - /home/administrator/maqueta-ims-3/scscf:/mnt/scscf
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - scscf
+          - scscf.${IMS_DOMAIN}
+      isc:
+        aliases:
+          - scscf-isc
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == core-ims
+
+  pcscf:
+    build: !reset null
+    container_name: !reset null
+    restart: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    dns: !reset []
+    volumes:
+      - /home/administrator/maqueta-ims-3/pcscf:/mnt/pcscf
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - pcscf
+          - pcscf.${IMS_DOMAIN}
+          - ${IMS_DOMAIN}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == core-ims
+
+  asfront:
+    build: !reset null
+    container_name: !reset null
+    restart: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    dns: !reset []
+    volumes:
+      - /home/administrator/maqueta-ims-3/asfront:/mnt/asfront
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - asfront-private
+      isc:
+        aliases:
+          - asfront-isc
+          - asfront.${IMS_DOMAIN}
+          - asfront-isc.${IMS_DOMAIN}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == core-ims
+
+  freeswitch:
+    build: !reset null
+    # init.sh desde el bind-mount: fija local_ip_v4 a la IP overlay en Swarm.
+    entrypoint: ["/bin/sh", "/mnt/freeswitch/init.sh"]
+    # Con TTY la consola sale por línea: los checks E2E leen `docker logs` al momento.
+    tty: true
+    environment:
+      UI_API_HOST: mims3_ui:8888
+    container_name: !reset null
+    restart: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    dns: !reset []
+    volumes:
+      - /home/administrator/maqueta-ims-3/freeswitch:/mnt/freeswitch
+      - /home/administrator/maqueta-ims-3/freeswitch/scripts:/usr/share/freeswitch/scripts
+      - /home/administrator/maqueta-ims-3/freeswitch/vms:/var/lib/freeswitch/storage/vms
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - freeswitch
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == ivr
+
+  softphone:
+    build: !reset null
+    container_name: !reset null
+    restart: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    dns: !reset []
+    volumes:
+      - /home/administrator/maqueta-ims-3/softphone:/mnt/softphone
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - softphone
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == ivr
+
+  ui:
+    build: !reset null
+    container_name: !reset null
+    restart: !reset null
+    depends_on: !reset []
+    env_file:
+      - .env.swarm
+    volumes: !override
+      - ui_config:/var/lib/ims-ui
+    environment:
+      DOCKER_API_CORE: tcp://docker-proxy-core:2375
+      DOCKER_API_DATABASE: tcp://docker-proxy-database:2375
+      DOCKER_API_IVR: tcp://docker-proxy-ivr:2375
+      PYHSS_API_HOST: mims3_pyhss_api
+      PCSCF_HOST: mims3_pcscf
+    networks:
+      default:
+        ipv4_address: !reset null
+        aliases:
+          - ui
+      management: {}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == ivr
+
+  docker_proxy_core:
+    image: mims3_docker_proxy
+    build: !reset null
+    container_name: !reset null
+    restart: !reset null
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      management:
+        aliases:
+          - docker-proxy-core
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == core-ims
+
+  docker_proxy_database:
+    image: mims3_docker_proxy
+    build: !reset null
+    container_name: !reset null
+    restart: !reset null
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      management:
+        aliases:
+          - docker-proxy-database
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == database
+
+  docker_proxy_ivr:
+    image: mims3_docker_proxy
+    build: !reset null
+    container_name: !reset null
+    restart: !reset null
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      management:
+        aliases:
+          - docker-proxy-ivr
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.labels.role == ivr
+
+networks:
+  default: !reset
+    external: true
+    name: mims3_network
+  isc:
+    external: true
+    name: mims3_isc
+  management:
+    external: true
+    name: mims3_management

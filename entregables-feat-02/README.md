@@ -1,6 +1,6 @@
 # Entregables FEAT-02 — maqueta IMS uVAS
 
-Rama: `feature/feat-02` · Fecha: 2026-10-06
+Rama: `feature/feat-02` · Fecha: 2026-10-06 · Actualizado: 2026-10-14 (despliegue DEV en Swarm)
 
 | # | Entregable | Archivo |
 |---|---|---|
@@ -29,3 +29,18 @@ Cada carpeta `iter-*` contiene `test_maqueta.log`, `maqueta_ims_sip_only.pcap` y
 `check_3gpp.md`. Las capturas completas (`maqueta_ims.pcap`) solo se conservan en la
 línea base y las dos corridas finales; las capturas no se versionan en git (`*.pcap`
 está en `.gitignore`).
+
+## Despliegue DEV (Docker Swarm, 3 nodos) — 2026-10-14
+
+- UI E2E (`http://192.168.5.231|232|233:8090`, pestaña Prueba E2E): **14/14**.
+- Contrato `SWARM_MODE=1 bash scripts/test_maqueta.sh`: **22/22** contra los tres nodos.
+- Captura DEV (`03_iteraciones/iter-31-dev-swarm-final/`): **27/28 reglas 3GPP**. Única regla
+  en FAIL: G3 (RFC 3261 §18.1.1), porque la overlay de Swarm hereda MTU 1450 del underlay y
+  las peticiones UDP > 1250 B se fragmentan. IMS-AKA, IPsec (ICV verificado), registro,
+  sesión, ISC y MWI cumplen.
+
+```bash
+cd maqueta-ims-3
+SWARM_MODE=1 bash scripts/test_maqueta.sh                 # contrato E2E en DEV
+bash scripts/capture_iteration_swarm.sh ../entregables-feat-02/03_iteraciones/iter-NN
+```

@@ -25,6 +25,12 @@ ASFRONT="mims3_asfront"
 PCSCF="mims3_pcscf"
 PCSCF_IP="172.32.0.8"
 VMS_DIR="/var/lib/freeswitch/storage/vms/0100003/INBOX"
+# Swarm (DEV, 3 nodos): docker() opera sobre las tareas remotas y el dominio
+# IMS resuelve a la VIP del servicio P-CSCF, no a una IP fija.
+if [ "${SWARM_MODE:-0}" = "1" ]; then
+  . "$SCRIPT_DIR/docker_swarm_lib.sh"
+  PCSCF_IP=$(docker exec "$SOFTPHONE" getent ahostsv4 "$PCSCF" 2>/dev/null | awk 'NR==1{print $1}')
+fi
 
 PASS=0; FAIL=0
 say()    { echo "[ $1 ]"; }
@@ -111,7 +117,13 @@ say "PASO 5/6 — Llamada UE1 -> AS (iFC -> IVR en FreeSWITCH)"
 # (al cerrarse pjsua cuelga: 487 Session already DISCONNECTED).
 ue_run 1 pjC.log "echo m; sleep 0.5; echo 'sip:0100002@$DOMAIN'; sleep 14; echo q; sleep 4"
 wait_pj 25 pjC.log "Call 0 state changed to CONFIRMED"; RC=$?
-docker logs --since 25s "$FREESWITCH" 2>&1 | grep -q "ivr_bienvenida.wav"; RA=$?
+# El motor Lua (FEAT-01) registra "done playing .../ivr_bienvenida.wav" al
+# terminar el saludo, ~1-2 s después del CONFIRMED: se espera al marcador.
+i=0; RA=1
+while [ "$i" -lt 10 ]; do
+  docker logs --since 30s "$FREESWITCH" 2>&1 | grep -q "ivr_bienvenida.wav" && { RA=0; break; }
+  sleep 1; i=$((i+1))
+done
 docker logs --since 25s "$ASFRONT" 2>&1 | grep -q "AS-Front: re-origina a FreeSWITCH"; RAS=$?
 docker logs --since 25s "$PCSCF" 2>&1 | grep -q "RTPEngine engaged for Application Server"; RRT=$?
 report "$([ $RC -eq 0 ] && echo 0 || echo 1)" "llamada UE1 CONFIRMED" "INVITE -> 200 OK -> ACK"

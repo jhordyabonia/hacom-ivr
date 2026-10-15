@@ -13,6 +13,9 @@
   </aliases>
 
   <settings>
+    <!-- Bind SIP/RTP to local_ip_v4 (overlay IP in Swarm, set by init.sh) -->
+    <param name="sip-ip" value="$${local_ip_v4}"/>
+    <param name="rtp-ip" value="$${local_ip_v4}"/>
     <!-- No authentication: S-CSCF handles AKA auth before forwarding to AS -->
     <param name="auth-calls" value="false"/>
     <!-- Dialplan context: our public.xml implements IVR/VMS -->

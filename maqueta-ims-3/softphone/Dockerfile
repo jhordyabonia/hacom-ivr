@@ -7,51 +7,28 @@ RUN apt-get update && \
 COPY pjproject-2.14.tar.gz /tmp/pj.tar.gz
 RUN tar -xzf /tmp/pj.tar.gz -C /tmp && mv /tmp/pjproject-2.14 /tmp/pjproject
 COPY ims_ext.c /tmp/pjproject/pjsip-apps/src/pjsua/ims_ext.c
+COPY patch_ims_aka.py /tmp/patch_ims_aka.py
 # IMS-AKA (TS 33.203): AKA nativo de pjsip + Milenage con OPc (la USIM de la
 # maqueta se provisiona con OPc en PyHSS); extensión IMS (sec-agree/IPsec, PANI,
 # MMTEL) enganchada en pjsua_app.c.
 RUN cd /tmp/pjproject && \
     printf '#define PJSIP_HAS_DIGEST_AKA_AUTH 1\n' > pjlib/include/pj/config_site.h && \
     printf '/* MTU 9000 en la red del laboratorio (RFC 3261 §18.1.1) */\n#define PJSIP_UDP_SIZE_THRESHOLD 8000\n' >> pjlib/include/pj/config_site.h && \
-    python3 - <<'EOF'
-import re
-p = 'third_party/milenage/milenage.c'
-s = open(p).read()
-s = s.replace('''  RijndaelEncrypt( op, op_c );
-  for (i=0; i<16; i++)
-    op_c[i] ^= op[i];
-''', '''  /* maqueta-ims-3: el parámetro "op" ya es OPc (provisionado en el HSS) */
-  for (i=0; i<16; i++)
-    op_c[i] = op[i];
-''')
-open(p, 'w').write(s)
-# Milenage/Rijndael no se enlazan por defecto: se compilan dentro de libpjsip.
-p = 'pjsip/src/pjsip/sip_auth_aka.c'
-s = open(p).read()
-s += '\n#if PJSIP_HAS_DIGEST_AKA_AUTH\n#include "../../third_party/milenage/rijndael.c"\n#include "../../third_party/milenage/milenage.c"\n#endif\n'
-open(p, 'w').write(s)
-p = 'pjsip-apps/src/pjsua/pjsua_app.c'
-s = open(p).read()
-s = s.replace('static pjsip_module mod_default_handler =',
-              '#include "ims_ext.c"\n\nstatic pjsip_module mod_default_handler =', 1)
-s = s.replace('''                                         &mod_default_handler);
-    if (status != PJ_SUCCESS)
-        return status;
-''', '''                                         &mod_default_handler);
-    if (status != PJ_SUCCESS)
-        return status;
-
-    status = ims_ext_init(&app_config);
-    if (status != PJ_SUCCESS)
-        return status;
-''', 1)
-assert 'ims_ext_init(&app_config)' in s
-open(p, 'w').write(s)
-EOF
+    python3 /tmp/patch_ims_aka.py && \
+    test -f pjsip/src/pjsip/ims_milenage.c && \
+    grep -q 'ims_milenage.o ims_rijndael.o' pjsip/build/Makefile && \
+    grep -q 'ims_ext_init(&app_config)' pjsip-apps/src/pjsua/pjsua_app.c
 RUN cd /tmp/pjproject && \
     ./configure --disable-video --disable-sound --disable-libwebrtc > /tmp/configure.log && \
     grep -i 'amr' /tmp/configure.log; \
-    make dep >/dev/null 2>&1 && make -j"$(nproc)" >/tmp/make.log 2>&1 || (tail -40 /tmp/make.log; exit 1)
+    make dep >/dev/null 2>&1 && \
+    make -j"$(nproc)" lib >/tmp/make.log 2>&1 && \
+    (ar t pjsip/lib/libpjsip-x86_64-unknown-linux-gnu.a | grep -E 'ims_milenage|ims_rijndael|sip_auth_aka' || true) && \
+    (nm -A pjsip/lib/libpjsip-x86_64-unknown-linux-gnu.a | grep -E 'f2345| f1$' || true) && \
+    nm -A pjsip/lib/libpjsip-*.a | grep -E ' [Tt] f2345$' && \
+    nm -A pjsip/lib/libpjsip-*.a | grep -E ' [Tt] f1$' && \
+    make -j"$(nproc)" -C pjsip-apps/build pjsua >>/tmp/make.log 2>&1 || \
+    (tail -40 /tmp/make.log; exit 1)
 
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive

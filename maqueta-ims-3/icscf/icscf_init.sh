@@ -27,6 +27,11 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 [ ${#MNC} == 3 ] && IMS_DOMAIN="ims.mnc${MNC}.mcc${MCC}.3gppnetwork.org" || IMS_DOMAIN="ims.mnc0${MNC}.mcc${MCC}.3gppnetwork.org"
+MYSQL_IP="${MYSQL_HOST:-$MYSQL_IP}"
+if [[ "${SWARM_MODE:-0}" == "1" ]]; then
+	ICSCF_IP="$(ip -o -4 addr show dev eth0 scope global | awk 'NR == 1 {split($4, a, "/"); print a[1]}')"
+	[[ -n "$ICSCF_IP" ]] || { echo "No se pudo determinar la IP overlay de I-CSCF" >&2; exit 1; }
+fi
 
 mkdir -p /etc/kamailio_icscf
 cp /mnt/icscf/icscf.cfg /etc/kamailio_icscf
@@ -51,12 +56,8 @@ then
 	then
 		mysql -u root -h ${MYSQL_IP} -e "CREATE USER 'icscf'@'%' IDENTIFIED WITH mysql_native_password BY 'heslo'";
 		mysql -u root -h ${MYSQL_IP} -e "CREATE USER 'provisioning'@'%' IDENTIFIED WITH mysql_native_password BY 'provi'";
-		mysql -u root -h ${MYSQL_IP} -e "CREATE USER 'icscf'@'$ICSCF_IP' IDENTIFIED WITH mysql_native_password BY 'heslo'";
-		mysql -u root -h ${MYSQL_IP} -e "CREATE USER 'provisioning'@'$ICSCF_IP' IDENTIFIED WITH mysql_native_password BY 'provi'";
 		mysql -u root -h ${MYSQL_IP} -e "GRANT ALL ON icscf.* TO 'icscf'@'%'";
-		mysql -u root -h ${MYSQL_IP} -e "GRANT ALL ON icscf.* TO 'icscf'@'$ICSCF_IP'";
 		mysql -u root -h ${MYSQL_IP} -e "GRANT ALL ON icscf.* TO 'provisioning'@'%'";
-		mysql -u root -h ${MYSQL_IP} -e "GRANT ALL ON icscf.* TO 'provisioning'@'$ICSCF_IP'";
 		mysql -u root -h ${MYSQL_IP} -e "FLUSH PRIVILEGES;"
 	fi
 fi
@@ -82,14 +83,14 @@ fi
 
 REGISTRATION_EXPIRES_ENV=3600
 
-sed -i 's|ICSCF_IP|'$ICSCF_IP'|g' /etc/kamailio_icscf/icscf.cfg
+sed -i 's|ICSCF_LISTEN_IP|'$ICSCF_IP'|g' /etc/kamailio_icscf/icscf.cfg
 sed -i 's|REGISTRATION_EXPIRES_ENV|'$REGISTRATION_EXPIRES_ENV'|g' /etc/kamailio_icscf/icscf.cfg
 sed -i 's|IMS_DOMAIN|'$IMS_DOMAIN'|g' /etc/kamailio_icscf/icscf.cfg
 sed -i 's|MYSQL_IP|'$MYSQL_IP'|g' /etc/kamailio_icscf/icscf.cfg
 
-sed -i 's|ICSCF_IP|'$ICSCF_IP'|g' /etc/kamailio_icscf/kamailio_icscf.cfg
+sed -i 's|ICSCF_LISTEN_IP|'$ICSCF_IP'|g' /etc/kamailio_icscf/kamailio_icscf.cfg
 
-sed -i 's|ICSCF_IP|'$ICSCF_IP'|g' /etc/kamailio_icscf/icscf.xml
+sed -i 's|ICSCF_LISTEN_IP|'$ICSCF_IP'|g' /etc/kamailio_icscf/icscf.xml
 sed -i 's|REGISTRATION_EXPIRES_ENV|'$REGISTRATION_EXPIRES_ENV'|g' /etc/kamailio_icscf/icscf.xml
 sed -i 's|IMS_DOMAIN|'$IMS_DOMAIN'|g' /etc/kamailio_icscf/icscf.xml
 sed -i 's|PYHSS_BIND_PORT|'$PYHSS_BIND_PORT'|g' /etc/kamailio_icscf/icscf.xml

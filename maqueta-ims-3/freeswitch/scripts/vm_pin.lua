@@ -9,7 +9,8 @@
 
 local domain = argv[1] or session:getVariable("vm_domain") or ""
 local caller = argv[2] or session:getVariable("caller_id_number") or "-"
-local ui_host = "172.32.0.14:8888"  -- UI/API (Flask :8888)
+-- UI/API (Flask :8888): IP fija en compose local; en Swarm, UI_API_HOST=mims3_ui:8888.
+local ui_host = os.getenv("UI_API_HOST") or "172.32.0.14:8888"
 local prompt = "/mnt/freeswitch/audio/pin_prompt.wav"
 local invalid = "/mnt/freeswitch/audio/pin_invalido.wav"
 

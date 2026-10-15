@@ -28,3 +28,33 @@ reflejan la versión de ese momento. La línea base se re-evaluó con la versió
 | 27 | 22/22 | 25/27 | S5 M3 | Corrida inmediata tras la 26: NOTIFY a la suscripción MWI del UE2 de la corrida anterior (pjsua no la cancela al salir) | Paso 0 del test reinicia el AS |
 | 28 final | **22/22** | **27/27** | — | — | Tras añadir el perfil Digest opcional (desactivado) y recompilar el softphone |
 | 29 confirmación | **22/22** | **27/27** | — | Corrida consecutiva a la 28 | — |
+
+## Despliegue DEV en Docker Swarm (3 nodos) — 2026-10-14
+
+Nodos: Core IMS `192.168.5.231`, Base de Datos `192.168.5.232`, IVR+VMS `192.168.5.233`. [CONFIG]
+Captura con `scripts/capture_iteration_swarm.sh`: `tcpdump -i any -s0` dentro de los
+namespaces de red del P-CSCF (Gm + Mw) y del AS-Front (ISC), unidos con `mergecap`. [CODE]
+Diagnóstico previo (UI E2E 6/14, captura `results/Screenshot+From+2026-10-14+12-45-26-1.png`). [DOC]
+
+| Paso | E2E | Hallazgo | Corrección aplicada |
+|---|---|---|---|
+| D1 | UI 6/14 | pjsua publicaba la IP de `docker_gwbridge` (ruta por defecto) en Via/Contact e instalaba las SA IPsec con ese origen; el tráfico real sale por la overlay → el 2º REGISTER no iba por la SA | `ue.sh`: `--bound-addr/--ip-addr` = origen de `ip route get <P-CSCF>` |
+| D2 | UI 6/14 | P-CSCF con `IPSEC_LISTEN_ADDR` = VIP Swarm; ESP no atraviesa IPVS | `pcscf.cfg`: SA sobre la IP de la tarea (`PCSCF_LISTEN_IP`); el UE apunta a `tasks.mims3_pcscf` |
+| D3 | UI 6/14 | SAR → `No row was found`: el servicio softphone tenía `UE1_MSISDN=0100001` (HSS: `0010100001`) | `.env` y servicio con MSISDN canónico |
+| D4 | UI 9/14 | Registro 200 OK; `Service-Route` perdido en el log (stdout de pjsua con buffer + `kill -9`) | `ue.sh`: `stdbuf -oL` |
+| D5 | UI 9/14 | El S-CSCF no tenía socket en la red ISC ni el AS-Front en la red IMS → el INVITE ISC salía con origen ajeno y se perdía | `scscf_init.sh`/`asfront_init.sh`: `listen` en todas las IP overlay + `mhomed=1` |
+| D6 | UI 13/14 | FreeSWITCH enlazado a `docker_gwbridge` (172.18.x) | `init.sh` fija `local_ip_v4` a la IP overlay; `external.xml` `sip-ip/rtp-ip` |
+| D7 | UI **14/14** | El check de IVR leía `docker logs` una sola vez (consola de FS con retardo) | UI v5: sondeo hasta 12 s; FS con `tty: true` |
+| D8 | 15/22 | `test_maqueta.sh` no corría contra Swarm | `scripts/docker_swarm_lib.sh` (`SWARM_MODE=1`) |
+| D9 | 15/22 | PIN contra `172.32.0.14` fijo; UE1→UE2 no registrado acababa en el P-CSCF (403): el dominio resuelve al P-CSCF y el DNS embebido no tiene el SRV → I-CSCF | `vm_pin.lua` con `UI_API_HOST`; S-CSCF con siguiente salto al I-CSCF en Swarm (`SWARM_ICSCF_URI`) |
+| D10 | 20/22 | `docker restart` sobre la tarea dejaba 3 FreeSWITCH detrás de la misma VIP | Envoltorio: restart = `docker service update --force`; huérfanos eliminados |
+| D11 | **22/22** | NOTIFY MWI de FS hacia la IP ISC del S-CSCF (inalcanzable): el AS-Front no hacía Record-Route | `kamailio_asfront.cfg`: `record_route()` + `loose_route()` en diálogo |
+| iter-30 | 22/22 | 3GPP 16/28: sin INVITE/NOTIFY en el filtrado. MTU overlay 1450 → fragmentación; `-Y sip -w` guarda solo el último fragmento; el verificador descartaba fragmentos; SNAT del balanceador Swarm ocultaba al S-CSCF | Filtro `sip \|\| ip.flags.mf == 1`; reensamblado IP en `check_3gpp.py`; IP `<red>-endpoint` en `nodes.json`; regla nueva G3 (RFC 3261 §18.1.1) separada de G2 |
+| iter-31 final | **22/22** | 3GPP **27/28**: solo G3 en FAIL (peticiones UDP fragmentadas: REGISTER ≈1,47 kB, INVITE ≈2 kB) | Requiere MTU ≥ 2200 (jumbo frames) en la red del hipervisor DEV, o SIP sobre TCP en Gm; ver informe |
+
+Notas. La captura local de la iter-29 re-evaluada con el verificador actual sigue en
+**CUMPLE 100 %**. [CODE] El filtrado con el comando literal `tshark -Y sip -w` queda en
+`iter-31-dev-swarm-final/maqueta_ims_sip_only_comando_literal.pcap` (16/28 PASS) para
+mostrar el efecto de la fragmentación. [CODE] Una overlay con `mtu=9000` se probó sobre un
+underlay de 1500: el kernel fija PMTU 1450 (`ping -M do -s 4000` falla), por lo que la
+solución de local (bridge MTU 9000) no es aplicable en DEV sin cambiar la red física. [CODE]

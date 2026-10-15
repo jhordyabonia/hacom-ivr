@@ -194,6 +194,7 @@ def split_sip(buf):
 
 def parse_capture(path):
     msgs, seen, n = [], {}, 0
+    frags = {}
     esp_raw = []
     for ts, lt, frame in read_frames(path):
         ip = l3(lt, frame)
@@ -205,9 +206,27 @@ def parse_capture(path):
         src = ".".join(map(str, ip[12:16]))
         dst = ".".join(map(str, ip[16:20]))
         frag = struct.unpack(">H", ip[6:8])[0]
-        if frag & 0x3FFF:
-            continue                             # fragmento IP: no esperado (MTU 9000)
         pl = ip[ihl:tot]
+        fragmented = False
+        if frag & 0x3FFF:
+            # Fragmento IP (MTU de la red < tamaño del mensaje, p. ej. overlay
+            # Swarm de 1450): se reensambla por (origen, destino, proto, id).
+            fkey = (src, dst, proto, ip[4:6])
+            parts_f = frags.setdefault(fkey, {})
+            parts_f[(frag & 0x1FFF) * 8] = pl
+            if not frag & 0x2000:
+                parts_f["end"] = (frag & 0x1FFF) * 8 + len(pl)
+            end = parts_f.get("end")
+            if end is None:
+                continue
+            buf, off = b"", 0
+            while off < end and off in parts_f:
+                buf += parts_f[off]
+                off += len(parts_f[off])
+            if off != end:
+                continue
+            del frags[fkey]
+            pl, fragmented = buf, True
         esp = None
         if proto == 50 and len(pl) > 8 + 12:
             spi, seq = struct.unpack(">II", pl[:8])
@@ -240,6 +259,7 @@ def parse_capture(path):
                 continue
             n += 1
             m = Msg(n, ts, src, sport, dst, dport, tp, p, esp)
+            m.fragmented = fragmented
             msgs.append(m)
             if esp:
                 esp_raw.append(m)
@@ -329,8 +349,16 @@ def check(msgs, subs):
         cl = m.h("content-length")
         if cl is not None and int(cl) != len(m.body.encode("utf-8", "replace")):
             bad.append("%s Content-Length=%s cuerpo=%d" % (m.ref(), cl, len(m.body)))
-    R.add("G2", "RFC 3261 §18.3/§20.14", "Mensajes completos (Content-Length = cuerpo, sin fragmentación IP)",
+    R.add("G2", "RFC 3261 §18.3/§20.14", "Mensajes completos (Content-Length = cuerpo)",
           not bad, bad[:5] or ["%d mensajes íntegros" % len(msgs)])
+    # G3: una petición por UDP que no cabe en el MTU del camino debe ir por un
+    # transporte con control de congestión (TCP); fragmentada no cumple.
+    bad = ["%s %d bytes" % (m.ref(), len(m.raw)) for m in msgs
+           if m.method and m.proto == "udp" and m.fragmented]
+    nfrag = sum(1 for m in msgs if m.fragmented)
+    R.add("G3", "RFC 3261 §18.1.1", "Peticiones UDP dentro del MTU del camino (sin fragmentación IP)",
+          not bad, bad[:5] + (["%d mensajes fragmentados en total" % nfrag] if bad else [])
+          or ["sin fragmentación IP"])
 
     # ---------------------------------------------------------------- A ---
     # A1: REGISTER inicial con Authorization (IMPI) y response vacío
@@ -483,18 +511,33 @@ def check(msgs, subs):
           bool(gm) and not bad, bad[:6] or ["%d mensajes Gm; %d en ESP" % (len(gm), sum(1 for m in gm if m.esp))])
     # S5: ICV ESP (HMAC-SHA-1-96 con IK‖0^32) válido en los mensajes protegidos
     iks = list({m.aka["IK"] for m in prot_regs if getattr(m, "aka", None)})
-    bad, ok_n = [], 0
+    # SPI negociados dentro de la captura (Security-Client / Security-Server).
+    # Un SPI que no aparece pertenece a una SA anterior a la ventana capturada:
+    # sin su reto AKA no hay IK con que verificarlo; se informa aparte.
+    spis = set()
+    for m in msgs:
+        for hname in ("security-client", "security-server", "security-verify"):
+            for v in m.hall(hname):
+                for sp in secparams(v):
+                    for k in ("spi-c", "spi-s"):
+                        if str(sp.get(k, "")).isdigit():
+                            spis.add(int(sp[k]))
+    bad, ok_n, outside = [], 0, []
     for m in gm:
         if not m.esp:
             continue
         valid = any(hmac.new(ik + bytes(4), m.esp["authdata"], hashlib.sha1).digest()[:12] == m.esp["icv"] for ik in iks)
         if valid:
             ok_n += 1
+        elif m.esp["spi"] not in spis:
+            outside.append("%s spi=%d" % (m.ref(), m.esp["spi"]))
         else:
             bad.append("%s spi=%d" % (m.ref(), m.esp["spi"]))
     R.add("S5", "TS 33.203 §7.1 / RFC 2404 / RFC 4303",
           "Integridad ESP verificada: ICV HMAC-SHA-1-96 con IK derivada por Milenage",
-          ok_n > 0 and not bad, bad[:5] or ["%d paquetes ESP con ICV válido (%d IK distintas)" % (ok_n, len(iks))])
+          ok_n > 0 and not bad, bad[:5] or ["%d paquetes ESP con ICV válido (%d IK distintas)" % (ok_n, len(iks))]
+          + (["%d paquetes de SA negociadas antes de la captura (no verificables): %s"
+              % (len(outside), "; ".join(outside[:3]))] if outside else []))
     # S6: el P-CSCF no propaga sec-agree al core y no lo añade en respuestas 2xx
     bad = []
     for m in msgs:
@@ -679,7 +722,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("pcap")
     ap.add_argument("--json")
+    ap.add_argument("--nodes", help="JSON {ip: rol} con las IPs reales (Swarm: IPs de tarea)")
     a = ap.parse_args()
+    if a.nodes:
+        with open(a.nodes) as f:
+            NODES.clear()
+            NODES.update(json.load(f))
     msgs = parse_capture(a.pcap)
     R = check(msgs, load_subscribers())
     text, ok = render(R, msgs, a.pcap)

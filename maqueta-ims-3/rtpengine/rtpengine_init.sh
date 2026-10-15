@@ -29,6 +29,16 @@
 set -x
 RUNTIME=${1:-rtpengine}
 
+if [ "${SWARM_MODE:-0}" = "1" ]; then
+	OVERLAY_IP="$(ip -o -4 addr show dev eth0 scope global | awk 'NR == 1 {split($4, a, "/"); print a[1]}')"
+	if [ -z "$OVERLAY_IP" ]; then
+		echo "No se pudo determinar la IP overlay de RTPEngine" >&2
+		exit 1
+	fi
+	INTERFACE="$OVERLAY_IP"
+	LISTEN_NG="$OVERLAY_IP:2223"
+fi
+
 if lsmod | grep xt_RTPENGINE || modprobe xt_RTPENGINE; then
 	echo "rtpengine kernel module already loaded."
 else

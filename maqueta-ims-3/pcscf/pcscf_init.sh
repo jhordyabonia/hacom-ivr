@@ -31,6 +31,19 @@ sh -c "echo 1 > /proc/sys/net/ipv6/ip_nonlocal_bind"
 
 [ ${#MNC} == 3 ] && EPC_DOMAIN="epc.mnc${MNC}.mcc${MCC}.3gppnetwork.org" || EPC_DOMAIN="epc.mnc0${MNC}.mcc${MCC}.3gppnetwork.org"
 [ ${#MNC} == 3 ] && IMS_DOMAIN="ims.mnc${MNC}.mcc${MCC}.3gppnetwork.org" || IMS_DOMAIN="ims.mnc0${MNC}.mcc${MCC}.3gppnetwork.org"
+MYSQL_IP="${MYSQL_HOST:-$MYSQL_IP}"
+RTPENGINE_IP="${RTPENGINE_HOST:-$RTPENGINE_IP}"
+if [[ "${SWARM_MODE:-0}" == "1" ]]; then
+	PCSCF_IP="$(ip -o -4 addr show dev eth0 scope global | awk 'NR == 1 {split($4, a, "/"); print a[1]}')"
+	[[ -n "$PCSCF_IP" ]] || { echo "No se pudo determinar la IP overlay de P-CSCF" >&2; exit 1; }
+	# Keep the IPsec endpoint stable across the task IP and the DNS service VIP.
+	for attempt in {1..30}; do
+		PCSCF_PUB_IP="$(getent ahostsv4 mims3_pcscf 2>/dev/null | awk 'NR == 1 {print $1}')"
+		[[ -n "$PCSCF_PUB_IP" ]] && break
+		sleep 1
+	done
+	[[ -n "$PCSCF_PUB_IP" ]] || { echo "No se pudo determinar la VIP Swarm de P-CSCF" >&2; exit 1; }
+fi
 
 mkdir -p /etc/kamailio_pcscf
 cp /mnt/pcscf/pcscf.cfg /etc/kamailio_pcscf
@@ -60,9 +73,7 @@ then
 	if [[ "$PCSCF_USER_EXISTS" == 0 ]]
 	then
 		mysql -u root -h ${MYSQL_IP} -e "CREATE USER 'pcscf'@'%' IDENTIFIED WITH mysql_native_password BY 'heslo'";
-		mysql -u root -h ${MYSQL_IP} -e "CREATE USER 'pcscf'@'$PCSCF_IP' IDENTIFIED WITH mysql_native_password BY 'heslo'";
 		mysql -u root -h ${MYSQL_IP} -e "GRANT ALL ON pcscf.* TO 'pcscf'@'%'";
-		mysql -u root -h ${MYSQL_IP} -e "GRANT ALL ON pcscf.* TO 'pcscf'@'$PCSCF_IP'";
 		mysql -u root -h ${MYSQL_IP} -e "FLUSH PRIVILEGES;"
 	fi
 fi
@@ -75,7 +86,7 @@ fi
 
 REGISTRATION_EXPIRES_ENV=3600
 
-sed -i 's|PCSCF_IP|'$PCSCF_IP'|g' /etc/kamailio_pcscf/pcscf.cfg
+sed -i 's|PCSCF_LISTEN_IP|'$PCSCF_IP'|g' /etc/kamailio_pcscf/pcscf.cfg
 sed -i 's|REGISTRATION_EXPIRES_ENV|'$REGISTRATION_EXPIRES_ENV'|g' /etc/kamailio_pcscf/pcscf.cfg
 sed -i 's|SCP_IP|'$SCP_IP'|g' /etc/kamailio_pcscf/pcscf.cfg
 sed -i 's|PCSCF_PUB_IP|'$PCSCF_PUB_IP'|g' /etc/kamailio_pcscf/pcscf.cfg
@@ -83,7 +94,7 @@ sed -i 's|IMS_DOMAIN|'$IMS_DOMAIN'|g' /etc/kamailio_pcscf/pcscf.cfg
 sed -i 's|EPC_DOMAIN|'$EPC_DOMAIN'|g' /etc/kamailio_pcscf/pcscf.cfg
 sed -i 's|MYSQL_IP|'$MYSQL_IP'|g' /etc/kamailio_pcscf/pcscf.cfg
 
-sed -i 's|PCSCF_IP|'$PCSCF_IP'|g' /etc/kamailio_pcscf/pcscf.xml
+sed -i 's|PCSCF_LISTEN_IP|'$PCSCF_IP'|g' /etc/kamailio_pcscf/pcscf.xml
 sed -i 's|REGISTRATION_EXPIRES_ENV|'$REGISTRATION_EXPIRES_ENV'|g' /etc/kamailio_pcscf/pcscf.xml
 sed -i 's|IMS_DOMAIN|'$IMS_DOMAIN'|g' /etc/kamailio_pcscf/pcscf.xml
 sed -i 's|EPC_DOMAIN|'$EPC_DOMAIN'|g' /etc/kamailio_pcscf/pcscf.xml

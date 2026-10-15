@@ -32,6 +32,29 @@ cp /mnt/dns/named.conf /etc/bind
 
 [ ${#MNC} == 3 ] && IMS_DOMAIN="ims.mnc${MNC}.mcc${MCC}.3gppnetwork.org" || IMS_DOMAIN="ims.mnc0${MNC}.mcc${MCC}.3gppnetwork.org"
 
+if [ "${SWARM_MODE:-0}" = "1" ]; then
+	service_vip() {
+		local service="$1" address
+		for attempt in $(seq 1 60); do
+			address="$(getent ahostsv4 "$service" | awk 'NR == 1 {print $1}')"
+			if [ -n "$address" ]; then
+				printf '%s\n' "$address"
+				return 0
+			fi
+			sleep 2
+		done
+		echo "No se pudo resolver el VIP overlay del servicio $service" >&2
+		return 1
+	}
+	DNS_IP="$(service_vip mims3_dns)"
+	PCSCF_IP="$(service_vip mims3_pcscf)"
+	ICSCF_IP="$(service_vip mims3_icscf)"
+	SCSCF_IP="$(service_vip mims3_scscf)"
+	PYHSS_DIAMETER_IP="$(service_vip mims3_pyhss_diameter)"
+	ASFRONT_IP="$(service_vip mims3_asfront)"
+	FREESWITCH_IP="$(service_vip mims3_freeswitch)"
+fi
+
 sed -i 's|IMS_DOMAIN|'$IMS_DOMAIN'|g' /etc/bind/ims_zone
 sed -i 's|DNS_IP|'$DNS_IP'|g' /etc/bind/ims_zone
 sed -i 's|PCSCF_IP|'$PCSCF_IP'|g' /etc/bind/ims_zone
