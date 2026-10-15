@@ -75,16 +75,16 @@ async function deckAvance() {
   pres.addSection({ title: "Resumen" });
   let s = pres.addSlide({ masterName: "PORTADA", sectionTitle: "Resumen" });
   s.addText("Maqueta IMS uVAS: VMS completo y señalización 3GPP al 100 %", { placeholder: "title" });
-  s.addText("Avance FEAT-02, PMV de voz y paso a paso para llevar la maqueta a un ambiente DEV · octubre 2026", { placeholder: "body" });
+  s.addText("Avance FEAT-02, PMV de voz y despliegue en el ambiente DEV de tres servidores · actualizado 14-oct-2026", { placeholder: "body" });
   s.addNotes("Presentación del avance: FEAT-02 terminado, cumplimiento 3GPP verificado sobre capturas, y plan para el ambiente DEV compartido.");
 
   // 2 Resumen en cifras
   s = pres.addSlide({ masterName: "CONTENIDO", sectionTitle: "Resumen" });
   s.addText("La maqueta pasa de 5 a 27 reglas 3GPP verificadas", { placeholder: "title" });
   const stats = [
-    ["27/27", "reglas 3GPP en la captura final", "línea base: 5/27 (18,5 %)", C.accent1],
-    ["22/22", "checks E2E del test de la maqueta", "antes: 16/20", C.accent3],
-    ["103", "paquetes ESP con integridad verificada", "IMS-AKA + IPsec en Gm", C.accent2],
+    ["27/27", "reglas 3GPP en la captura local", "DEV (Swarm): 27/28, solo falta G3 (MTU)", C.accent1],
+    ["22/22", "checks E2E del contrato, también en DEV", "UI web de DEV: 14/14", C.accent3],
+    ["97", "paquetes ESP con integridad verificada en DEV", "IMS-AKA + IPsec en Gm", C.accent2],
   ];
   stats.forEach((st, i) => {
     const x = 0.6 + i * 4.1;
@@ -93,7 +93,7 @@ async function deckAvance() {
     s.addText(st[1], { x: x + 0.3, y: 3.2, w: 3.2, h: 0.8, fontSize: 16, color: C.text1, align: "center", margin: 0, isTextBox: true });
     s.addText(st[2], { x: x + 0.3, y: 4.0, w: 3.2, h: 0.5, fontSize: 12, italic: true, color: C.accent5, align: "center", margin: 0, isTextBox: true });
   });
-  s.addText("Verificado en 29 iteraciones de captura (tcpdump → tshark -Y sip → check_3gpp.py); dos corridas finales consecutivas al 100 %.", { x: 0.6, y: 5.3, w: 12.1, h: 0.8, fontSize: 16, color: C.text1, isTextBox: true });
+  s.addText("Local: 29 iteraciones de captura (tcpdump → tshark -Y sip → check_3gpp.py). DEV: 11 correcciones de despliegue y 2 iteraciones de captura sobre los 3 nodos.", { x: 0.6, y: 5.3, w: 12.1, h: 0.8, fontSize: 16, color: C.text1, isTextBox: true });
   s.addNotes("Las 27 reglas citan TS 24.229, TS 33.203, TS 24.606, TS 26.114 y RFC 3261/3329. 100 % es sobre ese conjunto explícito.");
 
   // 3 Arquitectura
@@ -192,10 +192,10 @@ async function deckAvance() {
   // 8 Cronograma (Gantt)
   s = pres.addSlide({ masterName: "CONTENIDO", sectionTitle: "PMV y cronograma" });
   s.addText("Ruta a DEV y cierre del PMV de voz", { placeholder: "title" });
-  const start = new Date(2026, 9, 12); // lunes 12-oct-2026
+  const start = new Date(2026, 9, 12); // lunes 12-oct-2026 (VM entregadas el 10-oct)
   const tasks = [
-    { t: "Solicitud y provisión de VM DEV", d: 5, dep: null, who: "Infra (Henry)" },
-    { t: "Despliegue maqueta + E2E 22/22 en DEV", d: 3, dep: 0, who: "Jhordy" },
+    { t: "Provisión de 3 VM DEV (hecho)", d: 0, dep: null, who: "Infra (Henry)" },
+    { t: "Swarm + E2E 22/22 en DEV (hecho)", d: 3, dep: null, who: "Jhordy" },
     { t: "Acceso externo y softphones", d: 3, dep: 1, who: "Jhordy" },
     { t: "Endurecimiento (prompts, CFNR, SA)", d: 8, dep: 1, who: "Jhordy" },
     { t: "FEAT-03 MCA", d: 5, dep: 3, who: "Desarrollo" },
@@ -204,9 +204,8 @@ async function deckAvance() {
     { t: "Validación, demo y HLD", d: 4, dep: 6, who: "Equipo + Gleidi" },
   ];
   tasks.forEach((k) => {
-    k.s = k.dep === null ? new Date(start) : addBusinessDays(tasks[k.dep].e, 0);
-    if (k.dep !== null) k.s = addBusinessDays(tasks[k.dep].e, 1);
-    k.e = addBusinessDays(k.s, k.d - 1);
+    k.s = k.dep === null ? new Date(start) : addBusinessDays(tasks[k.dep].e, 1);
+    k.e = k.d > 0 ? addBusinessDays(k.s, k.d - 1) : new Date(k.s);
   });
   // offset en días hábiles desde el inicio
   const bd = (a, b) => { let n = 0; const r = new Date(a); while (r < b) { r.setDate(r.getDate() + 1); if (r.getDay() !== 0 && r.getDay() !== 6) n++; } return n; };
@@ -220,23 +219,23 @@ async function deckAvance() {
     s.addText(k.t, { x: 0.6, y, w: 3.7, h: rh - 0.08, fontSize: 13, color: C.text1, valign: "middle", margin: 0, isTextBox: true });
     const off = bd(start, k.s);
     const col = i < 2 ? C.accent2 : (i < 4 ? C.accent1 : (i < 7 ? C.accent3 : C.accent5));
-    s.addShape("roundRect", { x: gx + off * unit, y: y + 0.06, w: k.d * unit, h: rh - 0.2, rectRadius: 0.06, fill: { color: col }, line: { color: col }, objectName: "barra-" + i });
+    s.addShape("roundRect", { x: gx + off * unit, y: y + 0.06, w: Math.max(k.d, 0.3) * unit, h: rh - 0.2, rectRadius: 0.06, fill: { color: col }, line: { color: col }, objectName: "barra-" + i });
     s.addText(fmt(k.s) + " – " + fmt(k.e), { x: gx + (off + k.d) * unit + 0.08, y, w: 2.2, h: rh - 0.08, fontSize: 10, color: C.accent5, valign: "middle", margin: 0, isTextBox: true });
   });
   const endAll = tasks[tasks.length - 1].e;
-  s.addText(`Duración total: ${total} días hábiles (${fmt(start)} → ${fmt(endAll)}). Supuestos: VM entregada en 5 días; acceso externo y endurecimiento en paralelo; FEAT-03 y FEAT-04 en paralelo.`, { x: 0.6, y: 6.35, w: 12.1, h: 0.55, fontSize: 13, italic: true, color: C.accent5, isTextBox: true });
+  s.addText(`Duración total: ${total} días hábiles (${fmt(start)} → ${fmt(endAll)}). Hecho: VM DEV entregadas y maqueta verificada en Swarm (12–14 oct). Supuestos: acceso externo y endurecimiento en paralelo; FEAT-03 y FEAT-04 en paralelo.`, { x: 0.6, y: 6.35, w: 12.1, h: 0.55, fontSize: 13, italic: true, color: C.accent5, isTextBox: true });
   console.log("Cronograma:", tasks.map((k) => `${k.t}: ${fmt(k.s)}-${fmt(k.e)}`).join(" | "), "total", total);
   s.addNotes("Estimación por descomposición de tareas en días hábiles; las fechas se recalculan si cambia la fecha de entrega de la VM, que es la dependencia externa principal.");
 
   // 9 Requisitos DEV
   pres.addSection({ title: "Paso a paso DEV" });
   s = pres.addSlide({ masterName: "CONTENIDO", sectionTitle: "Paso a paso DEV" });
-  s.addText("Qué pedir a infraestructura", { placeholder: "title" });
+  s.addText("DEV desplegado en tres servidores con Docker Swarm", { placeholder: "title" });
   const req = [
-    ["8 vCPU", "CPU recomendada (mínimo 4)"],
-    ["16 GB", "RAM recomendada (mínimo 8)"],
-    ["80 GB", "SSD (imágenes ~6 GB + capturas)"],
-    ["Linux", "kernel con xfrm/esp4 y nftables"],
+    [".231", "Core IMS: P/I/S-CSCF, AS-Front, DNS, RTPEngine (4 vCPU · 8 GB)"],
+    [".232", "Base de datos: MySQL, Redis, PyHSS (2 vCPU · 4 GB)"],
+    [".233", "IVR+VMS: FreeSWITCH, UEs de prueba, UI (4 vCPU · 8 GB)"],
+    ["8090", "UI web en los tres nodos (malla de ingreso de Swarm)"],
   ];
   req.forEach((r, i) => {
     const x = 0.6 + i * 3.05;
@@ -245,23 +244,23 @@ async function deckAvance() {
     s.addText(r[1], { x: x + 0.2, y: 2.75, w: 2.4, h: 0.9, fontSize: 14, color: C.text1, align: "center", margin: 0, isTextBox: true });
   });
   s.addText([
-    { text: "Docker Engine + Compose v2; acceso SSH al repositorio hacom-ivr.", options: { bullet: true, breakLine: true } },
-    { text: "Red: ruta de la LAN/VPN de desarrollo hacia 172.32.0.0/24 (sin NAT: IPsec ESP no atraviesa NAT sin UDP-encap).", options: { bullet: true, breakLine: true } },
-    { text: "Puerto 8090/TCP para la UI de operación; UDP 5060 y 6100-6109/5100-5109 del P-CSCF.", options: { bullet: true } },
+    { text: "Redes overlay: mims3_network (IMS, 172.32.0.0/24), mims3_isc (ISC, 172.33.0.0/24) y mims3_management (proxies Docker de la UI).", options: { bullet: true, breakLine: true } },
+    { text: "Ajustes de Swarm: SA IPsec sobre la IP de la tarea del P-CSCF (ESP no pasa por la VIP), Kamailio en todas sus redes (mhomed) y FreeSWITCH en la IP overlay.", options: { bullet: true, breakLine: true } },
+    { text: "Límite de infraestructura: el underlay de 1500 B deja la overlay en 1450 B; con jumbo frames (MTU ≥ 2200) se cumpliría la regla G3.", options: { bullet: true } },
   ], { x: 0.6, y: 4.2, w: 12.1, h: 2.2, fontSize: 15, color: C.text1, paraSpaceAfter: 8, isTextBox: true });
 
   // 10 Paso a paso
   s = pres.addSlide({ masterName: "CONTENIDO", sectionTitle: "Paso a paso DEV" });
-  s.addText("Ocho pasos de la VM vacía a la maqueta verificada", { placeholder: "title" });
+  s.addText("Ocho pasos para reproducir el DEV de tres nodos", { placeholder: "title" });
   const steps = [
-    ["Preparar la VM", "Docker + Compose, módulos esp4/xfrm_user y nf_tables."],
-    ["Clonar la rama", "git clone … && git checkout feature/feat-02"],
-    ["Ajustar .env", "IPs de la red y dominio (MCC/MNC) si cambian."],
-    ["Construir y levantar", "docker compose up -d --build (14 contenedores)."],
-    ["Provisionar HSS", "scripts/provision_hss.sh (suscriptores e iFC)."],
-    ["Probar E2E", "bash scripts/test_maqueta.sh → 22/22"],
-    ["Verificar 3GPP", "bash scripts/capture_iteration.sh <dir> → 27/27"],
-    ["Abrir acceso", "Ruta LAN→172.32.0.0/24 y softphones (tutorial)."],
+    ["Preparar los nodos", "Docker en las 3 VM, módulos esp4/xfrm_user y nf_tables."],
+    ["Formar el Swarm", "docker swarm init/join; etiquetas role=core-ims, database, ivr."],
+    ["Crear redes overlay", "mims3_network, mims3_isc y mims3_management (external)."],
+    ["Construir imágenes", "En cada nodo, las de los servicios que aloja."],
+    ["Desplegar el stack", "compose + docker-compose.swarm.yml (.env + .env.swarm) → stack mims3."],
+    ["Provisionar HSS", "Desde la UI (Configuración) o scripts/provision_hss.sh."],
+    ["Probar E2E", "SWARM_MODE=1 bash scripts/test_maqueta.sh → 22/22"],
+    ["Verificar 3GPP", "bash scripts/capture_iteration_swarm.sh <dir> → 27/28"],
   ];
   steps.forEach((st, i) => {
     const col = i % 2, row = Math.floor(i / 2);
@@ -278,14 +277,14 @@ async function deckAvance() {
   s = pres.addSlide({ masterName: "CONTENIDO", sectionTitle: "Cierre" });
   s.addText("Riesgos y pendientes que conviene decidir ya", { placeholder: "title" });
   card(s, C, { x: 0.6, y: 1.5, w: 5.9, h: 2.3, head: "Integración con el HSS del operador", body: "Cómo enrutará las consultas de buzón hacia el FreeSWITCH correcto sin almacenamiento central (riesgo abierto en la minuta del 25/09)." });
-  card(s, C, { x: 6.8, y: 1.5, w: 5.9, h: 2.3, head: "Softphones comerciales", body: "No hacen IMS-AKA ni IPsec. En DEV se habilita un perfil SIP Digest (TS 33.203 Anexo N) aislado; producción solo AKA." });
+  card(s, C, { x: 6.8, y: 1.5, w: 5.9, h: 2.3, head: "Softphones externos en DEV", body: "No hacen IMS-AKA ni IPsec, y el P-CSCF solo es alcanzable dentro de la overlay: hace falta publicar el P-CSCF y un perfil Digest aislado (TS 33.203 Anexo N)." });
   card(s, C, { x: 0.6, y: 4.05, w: 5.9, h: 2.3, head: "Prompts de voz del buzón", body: "La imagen no trae los audios de mod_voicemail; el menú es propio en Lua. Falta grabar o instalar prompts en español." });
-  card(s, C, { x: 6.8, y: 4.05, w: 5.9, h: 2.3, head: "Dependencia de infraestructura", body: "Sin VM DEV no avanza la validación compartida: es la primera tarea de la ruta crítica." });
+  card(s, C, { x: 6.8, y: 4.05, w: 5.9, h: 2.3, head: "MTU de la red DEV", body: "La overlay de Swarm queda en 1450 B: REGISTER e INVITE por UDP se fragmentan (G3, RFC 3261 §18.1.1). Pedir jumbo frames o pasar Gm a SIP sobre TCP." });
 
   // 12 Próximos pasos (oscura)
   s = pres.addSlide({ masterName: "PORTADA", sectionTitle: "Cierre" });
   s.addText("Próximos pasos", { placeholder: "title" });
-  s.addText("1. Solicitar la VM DEV (8 vCPU / 16 GB / 80 GB) · 2. Desplegar y repetir 22/22 y 27/27 en DEV · 3. Abrir acceso de softphones · 4. Iniciar FEAT-03 y FEAT-04", { placeholder: "body" });
+  s.addText("1. Publicar la rama con la cuenta con permisos · 2. Pedir jumbo frames en la red DEV (G3) · 3. Abrir acceso de softphones externos · 4. Iniciar FEAT-03 y FEAT-04", { placeholder: "body" });
 
   const file = path.join(OUT, "FEAT-02_avance_PMV_ruta_DEV.pptx");
   await pres.writeFile({ fileName: file });
