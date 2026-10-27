@@ -1,0 +1,943 @@
+<mxfile host="app.diagrams.net" agent="hacom-ivr generator" version="24.7.17" type="device">
+  <diagram id="p1" name="1. Despliegue y red DEV (puertos)">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1300" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t" value="Despliegue DEV — Docker Swarm stack mims3: nodos, contenedores, redes, puertos y almacenamiento de audio" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="10" width="2150" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="st" value="Estado verificado el 26-10-2026 [CONFIG][CODE]: docker-compose.swarm.yml, .env.swarm, rtpengine_init.sh, pcscf_init.sh, freeswitch/init.sh, public.xml, voicemail.conf.xml, interfaz/app.py. Una réplica por servicio; placement por node.labels.role." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#444444;" vertex="1" parent="1">
+          <mxGeometry x="20" y="46" width="2150" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="Z" value="Acceso externo (Internet → VPN)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=12;swimlaneFillColor=#FFFFFF;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="20" y="80" width="300" height="430" as="geometry" />
+        </mxCell>
+        <mxCell id="lin" value="&lt;b&gt;Linphone · Redmi 13&lt;/b&gt;&lt;br&gt;UE3 0010100009 (perfil no-3GPP)&lt;br&gt;SIP Digest MD5 · transporte TCP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="Z">
+          <mxGeometry x="20" y="40" width="260" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ovpn" value="&lt;b&gt;Servidor OpenVPN&lt;/b&gt;&lt;br&gt;ltc.hacom.com.pe · UDP 1195" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="Z">
+          <mxGeometry x="20" y="160" width="260" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="nat" value="&lt;b&gt;Firewall de la VPN&lt;/b&gt;&lt;br&gt;NAT del cliente → 192.168.5.1&lt;br&gt;(origen visto por el nodo .231)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="Z">
+          <mxGeometry x="20" y="280" width="260" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="brw" value="&lt;b&gt;Navegador operador&lt;/b&gt; (LAN DEV / VPN)&lt;br&gt;http://192.168.5.233:8090/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="20" y="540" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="leg" value="Leyenda" style="swimlane;whiteSpace=wrap;html=1;startSize=26;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=12;swimlaneFillColor=#FFFFFF;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="20" y="640" width="300" height="330" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s0" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="36" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t0" value="Acceso / borde (VPN, P-CSCF, RTPEngine)" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="34" width="244" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s1" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="60" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t1" value="Núcleo IMS (I/S-CSCF, HSS, DNS)" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="58" width="244" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s2" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="84" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t2" value="Aplicación (AS-Front, FreeSWITCH, UI, workers)" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="82" width="244" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s3" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="108" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t3" value="Datos (MySQL, SQLite, Redis, PostgreSQL)" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="106" width="244" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s4" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="132" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t4" value="Almacenamiento de audio / volúmenes" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="130" width="244" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s5" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="156" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t5" value="Riesgo detectado en el código" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="154" width="244" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s6" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f2ff;strokeColor=#3a6ea5;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="180" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t6" value="Red overlay / bridge" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="178" width="244" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s7" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="204" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t7" value="Externo / gestión" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="202" width="244" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_e" value="Etiquetas de arista: protocolo · puerto/transporte. Línea discontinua = respuesta, flujo opcional o propuesta." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=10;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="232" width="278" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="LAN" value="LAN DEV 192.168.5.0/24 — Docker Swarm (3 nodos)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=12;swimlaneFillColor=#FFFFFF;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="350" y="80" width="1830" height="1140" as="geometry" />
+        </mxCell>
+        <mxCell id="N1" value="Core IMS · HCM4 · 192.168.5.231 · 4 vCPU / 8 GB / 30 GB · role=core-ims" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#f5f5f5;strokeColor=#333333;fontStyle=1;fontSize=12;swimlaneFillColor=#FCFCFC;collapsible=0;" vertex="1" parent="LAN">
+          <mxGeometry x="20" y="40" width="580" height="700" as="geometry" />
+        </mxCell>
+        <mxCell id="hp" value="&lt;b&gt;Puertos publicados mode=host&lt;/b&gt; (entran por docker_gwbridge)&lt;br&gt;5060/UDP + 5060/TCP → pcscf (socket ext anunciado 192.168.5.231, mhomed=1)&lt;br&gt;49900-49999/UDP → rtpengine interfaz «ext» (advertised 192.168.5.231)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;arcSize=8;align=left;spacingLeft=8;" vertex="1" parent="N1">
+          <mxGeometry x="20" y="40" width="540" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pcscf" value="&lt;b&gt;pcscf&lt;/b&gt; (Kamailio P-CSCF)&lt;br&gt;overlay :5060 UDP/TCP · IPsec cliente 5100&lt;br&gt;ext :5060 → añade P-Maqueta-Non3GPP: digest" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N1">
+          <mxGeometry x="20" y="160" width="250" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="rtpe" value="&lt;b&gt;rtpengine&lt;/b&gt;&lt;br&gt;ng 2223/UDP (IP overlay)&lt;br&gt;int: overlay · 49000-50000/UDP&lt;br&gt;ext: gwbridge · 49900-49999/UDP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N1">
+          <mxGeometry x="290" y="160" width="270" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="icscf" value="&lt;b&gt;icscf&lt;/b&gt;&lt;br&gt;SIP :4060 UDP/TCP&lt;br&gt;Diameter (bind 3869)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N1">
+          <mxGeometry x="20" y="300" width="250" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="scscf" value="&lt;b&gt;scscf&lt;/b&gt;&lt;br&gt;SIP :6060 UDP/TCP · Diameter (bind 3870)&lt;br&gt;NON3GPP_DIGEST=1 · redes network + isc" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N1">
+          <mxGeometry x="290" y="300" width="270" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="dns" value="&lt;b&gt;dns&lt;/b&gt;&lt;br&gt;53/UDP · ims.mnc001.mcc001.3gppnetwork.org" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N1">
+          <mxGeometry x="20" y="420" width="250" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="asf" value="&lt;b&gt;asfront&lt;/b&gt; (Kamailio AS-Front)&lt;br&gt;SIP :5060 · iniciales solo desde 172.33.0.0/24&lt;br&gt;redes network + isc" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N1">
+          <mxGeometry x="290" y="420" width="270" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="px1" value="docker_proxy_core (HAProxy)&lt;br&gt;2375/TCP · mims3_management" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N1">
+          <mxGeometry x="20" y="600" width="250" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m1" value="Bind-mounts /home/administrator/maqueta-ims-3/{dns, rtpengine, icscf, scscf, pcscf, asfront} → /mnt/*" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=10;spacing=4;" vertex="1" parent="N1">
+          <mxGeometry x="290" y="540" width="270" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="N2" value="Base de datos · 192.168.5.232 · 2 vCPU / 4 GB / 30 GB · role=database" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#f5f5f5;strokeColor=#333333;fontStyle=1;fontSize=12;swimlaneFillColor=#FCFCFC;collapsible=0;" vertex="1" parent="LAN">
+          <mxGeometry x="620" y="40" width="520" height="700" as="geometry" />
+        </mxCell>
+        <mxCell id="mysql" value="&lt;b&gt;mysql&lt;/b&gt; · 3306/TCP&lt;br&gt;BD Kamailio P/I/S-CSCF&lt;br&gt;vas.subscriber_pin (PIN en claro)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="N2">
+          <mxGeometry x="20" y="40" width="230" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="redis" value="&lt;b&gt;redis&lt;/b&gt; · 6379/TCP&lt;br&gt;sin volumen · appendonly off" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="N2">
+          <mxGeometry x="270" y="40" width="230" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="vdb" value="Volumen &lt;b&gt;mims3_database&lt;/b&gt;&lt;br&gt;(local .232)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="N2">
+          <mxGeometry x="20" y="160" width="230" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pyhss" value="&lt;b&gt;pyhss_hss&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N2">
+          <mxGeometry x="270" y="160" width="230" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pydia" value="&lt;b&gt;pyhss_diameter&lt;/b&gt; (alias hss.ims.mnc001…)&lt;br&gt;Diameter Cx 3868/TCP: UAR/UAA · LIR/LIA · MAR/MAA · SAR/SAA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N2">
+          <mxGeometry x="20" y="260" width="480" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="vpy" value="Volumen &lt;b&gt;mims3_pyhss_db&lt;/b&gt; → SQLite hss.db (compartido por los 3 roles PyHSS) · REDIS_HOST=mims3_redis" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="N2">
+          <mxGeometry x="20" y="370" width="480" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pyapi" value="&lt;b&gt;pyhss_api&lt;/b&gt;&lt;br&gt;HTTP 8080" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N2">
+          <mxGeometry x="20" y="600" width="230" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="px2" value="docker_proxy_database&lt;br&gt;2375/TCP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N2">
+          <mxGeometry x="270" y="600" width="230" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="N3" value="IVR + VoiceMail · 192.168.5.233 · 4 vCPU / 8 GB / 30 GB · role=ivr" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#f5f5f5;strokeColor=#333333;fontStyle=1;fontSize=12;swimlaneFillColor=#FCFCFC;collapsible=0;" vertex="1" parent="LAN">
+          <mxGeometry x="1160" y="40" width="640" height="700" as="geometry" />
+        </mxCell>
+        <mxCell id="fs" value="&lt;b&gt;freeswitch&lt;/b&gt; (perfil sofia «external», sin auth: confía en el core IMS)&lt;br&gt;SIP :5060 + RTP en la IP overlay (init.sh fija local_ip_v4) · PCMU/PCMA · disable-transcoding&lt;br&gt;0100002 IVR (ivr_flow.lua) · 0100003 record · 00101xxxxx mod_voicemail · 0100004 vm_pin.lua&lt;br&gt;MWI: manage-presence, force-subscription-expires 60 · UI_API_HOST=mims3_ui:8888" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N3">
+          <mxGeometry x="20" y="40" width="600" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="s1" value="&lt;b&gt;Bind-mount&lt;/b&gt; host /home/administrator/maqueta-ims-3/freeswitch/vms → /var/lib/freeswitch/storage/vms&lt;br&gt;0100003/INBOX/msg_YYYYMMDD_HHMMSS.wav · WAV PCM16 8 kHz mono ≈ 16 KB/s · máx. 300 s" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="N3">
+          <mxGeometry x="20" y="180" width="600" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" value="&lt;b&gt;Capa escribible del contenedor (SIN volumen)&lt;/b&gt;&lt;br&gt;/var/lib/freeswitch/storage/voicemail/default/ims.mnc001…/&amp;lt;MSISDN&amp;gt;/msg_&amp;lt;uuid&amp;gt;.wav&lt;br&gt;+ índice SQLite de mod_voicemail (/var/lib/freeswitch/db) — se pierde al recrear la tarea" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;strokeWidth=2;dashed=1;" vertex="1" parent="N3">
+          <mxGeometry x="20" y="270" width="600" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="&lt;b&gt;Bind-mount&lt;/b&gt; freeswitch/ → /mnt/freeswitch: conf/, audio/*.wav (prompts), flows/*.json, logs/ivr_cdr.jsonl; scripts/ → /usr/share/freeswitch/scripts" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="N3">
+          <mxGeometry x="20" y="370" width="600" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="ue" value="&lt;b&gt;softphone&lt;/b&gt; (pjsua parcheado)&lt;br&gt;UE1 0010100001 · UE2 0010100002&lt;br&gt;IMS-AKA + IPsec ESP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N3">
+          <mxGeometry x="20" y="470" width="190" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="px3" value="docker_proxy_ivr&lt;br&gt;2375/TCP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N3">
+          <mxGeometry x="225" y="470" width="190" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="vui" value="Volumen ui_config" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="N3">
+          <mxGeometry x="225" y="550" width="190" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="ui" value="&lt;b&gt;ui&lt;/b&gt; (Flask) :8888&lt;br&gt;publicado 8090/TCP (ingress)&lt;br&gt;/api/vms · /api/vms/media&lt;br&gt;/api/pin/auth" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="N3">
+          <mxGeometry x="430" y="470" width="190" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="net1" value="&lt;b&gt;mims3_network&lt;/b&gt; · overlay 172.32.0.0/24 · MTU efectivo 1450 (underlay 1500): REGISTER ≈1,47 kB / INVITE ≈2 kB por UDP se fragmentan (regla 3GPP G3)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e6f2ff;strokeColor=#3a6ea5;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="LAN">
+          <mxGeometry x="20" y="860" width="1780" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="net2" value="&lt;b&gt;mims3_isc&lt;/b&gt; · overlay 172.33.0.0/24 · S-CSCF ↔ AS-Front (ISC); ASFRONT_ALLOWED_CIDR" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e6f2ff;strokeColor=#3a6ea5;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="LAN">
+          <mxGeometry x="20" y="916" width="1780" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="net3" value="&lt;b&gt;mims3_management&lt;/b&gt; · overlay · ui ↔ docker_proxy_core / _database / _ivr (2375/TCP; exec, logs, put_archive)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e6f2ff;strokeColor=#3a6ea5;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="LAN">
+          <mxGeometry x="20" y="970" width="1780" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="net4" value="&lt;b&gt;docker_gwbridge&lt;/b&gt; (por nodo) · ruta por defecto de los contenedores; en .231 recibe 5060 y 49900-49999 publicados en modo host" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e6f2ff;strokeColor=#3a6ea5;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="LAN">
+          <mxGeometry x="20" y="1024" width="1780" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="net5" value="Ingress Swarm (routing mesh): 8090/TCP → ui:8888" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e6f2ff;strokeColor=#3a6ea5;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="LAN">
+          <mxGeometry x="20" y="1078" width="1780" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="x1" value="OpenVPN UDP/1195 (túnel)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;" edge="1" parent="1" source="lin" target="ovpn">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;" edge="1" parent="1" source="ovpn" target="nat">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x3" value="SIP Digest TCP → 192.168.5.231:5060" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.3;entryX=0;entryY=0.3;" edge="1" parent="1" source="nat" target="hp">
+          <mxGeometry relative="1" as="geometry" x="0.75" y="-12">
+            <Array as="points">
+              <mxPoint x="332" y="387" />
+              <mxPoint x="332" y="187" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x4" value="RTP UDP → 192.168.5.231:49900-49999" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.75;entryX=0;entryY=0.8;" edge="1" parent="1" source="nat" target="hp">
+          <mxGeometry relative="1" as="geometry" x="0.85" y="12">
+            <Array as="points">
+              <mxPoint x="342" y="427" />
+              <mxPoint x="342" y="232" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x5" value="socket ext" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.2;exitY=1;entryX=0.4;entryY=0;" edge="1" parent="1" source="hp" target="pcscf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x6" value="pool ext" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.8;exitY=1;entryX=0.6;entryY=0;" edge="1" parent="1" source="hp" target="rtpe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x7" value="ng 2223/UDP" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;" edge="1" parent="1" source="pcscf" target="rtpe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x8" value="SIP 4060 (REGISTER)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;" edge="1" parent="1" source="pcscf" target="icscf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x9" value="SIP 6060" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;" edge="1" parent="1" source="icscf" target="scscf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x10" value="ISC SIP 5060 · mims3_isc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;" edge="1" parent="1" source="scscf" target="asf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x11" value="Cx UAR/LIR · TCP 3868" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.8;exitY=0;entryX=0;entryY=0.31;" edge="1" parent="1" source="icscf" target="pydia">
+          <mxGeometry relative="1" as="geometry" x="0.3">
+            <Array as="points">
+              <mxPoint x="590" y="405" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x12" value="Cx MAR/SAR · TCP 3868" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.22;entryX=0;entryY=0.75;" edge="1" parent="1" source="scscf" target="pydia">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x13" value="MySQL 3306 (P/I/S-CSCF)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;dashed=1;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="pcscf" target="mysql">
+          <mxGeometry relative="1" as="geometry" x="0.55">
+            <Array as="points">
+              <mxPoint x="515" y="268" />
+              <mxPoint x="1105" y="268" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x14" value="Gm: SIP 5060 UDP/TCP + IPsec ESP (sec-agree) · RTP vía rtpengine int" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.5;exitY=1;entryX=0;entryY=0.8;" edge="1" parent="1" source="ue" target="pcscf">
+          <mxGeometry relative="1" as="geometry" x="0.0">
+            <Array as="points">
+              <mxPoint x="1625" y="845" />
+              <mxPoint x="380" y="845" />
+              <mxPoint x="380" y="368" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x15" value="SIP INVITE / SUBSCRIBE 5060 (overlay)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.5;exitY=1;entryX=0;entryY=0.6;" edge="1" parent="1" source="asf" target="fs">
+          <mxGeometry relative="1" as="geometry" x="0.0">
+            <Array as="points">
+              <mxPoint x="795" y="860" />
+              <mxPoint x="1496" y="860" />
+              <mxPoint x="1496" y="232" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x16" value="RTP PCMU/PCMA · int 49000-50000/UDP" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;startArrow=block;startFill=1;exitX=1;exitY=0.8;entryX=0;entryY=0.85;" edge="1" parent="1" source="rtpe" target="fs">
+          <mxGeometry relative="1" as="geometry" x="0.1">
+            <Array as="points">
+              <mxPoint x="960" y="368" />
+              <mxPoint x="960" y="875" />
+              <mxPoint x="1503" y="875" />
+              <mxPoint x="1503" y="262" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x17" value="HTTP 8888 GET /api/pin/auth" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=1;entryY=0.3;" edge="1" parent="1" source="fs" target="ui">
+          <mxGeometry relative="1" as="geometry" x="0.0">
+            <Array as="points">
+              <mxPoint x="2142" y="220" />
+              <mxPoint x="2142" y="623" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x18" value="Docker API 2375 → exec ls/stat/cat en freeswitch" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0;exitY=0.25;entryX=1;entryY=0.5;" edge="1" parent="1" source="ui" target="px3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x20" value="Docker API 2375 → exec mysql (PIN) · mims3_management" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.5;exitY=1;entryX=0.5;entryY=1;" edge="1" parent="1" source="ui" target="px2">
+          <mxGeometry relative="1" as="geometry" x="0.3">
+            <Array as="points">
+              <mxPoint x="2035" y="890" />
+              <mxPoint x="1355" y="890" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x21" value="HTTP 8080 (suscriptores)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.85;exitY=1;entryX=0.5;entryY=1;" edge="1" parent="1" source="ui" target="pyapi">
+          <mxGeometry relative="1" as="geometry" x="0.1">
+            <Array as="points">
+              <mxPoint x="2102" y="905" />
+              <mxPoint x="1105" y="905" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x22" value="record" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.85;exitY=1;entryX=0.85;entryY=0;" edge="1" parent="1" source="fs" target="s1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x23" value="mod_voicemail" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0;exitY=0.9;entryX=0;entryY=0.5;" edge="1" parent="1" source="fs" target="s2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1520" y="268" />
+              <mxPoint x="1520" y="432" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x24" value="HTTP 192.168.5.233:8090 → ingress → ui:8888" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.5;exitY=1;entryX=0.9;entryY=1;" edge="1" parent="1" source="brw" target="ui">
+          <mxGeometry relative="1" as="geometry" x="-0.2">
+            <Array as="points">
+              <mxPoint x="170" y="1245" />
+              <mxPoint x="2111" y="1245" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x25" value="SQLite" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;" edge="1" parent="1" source="pydia" target="vpy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;" edge="1" parent="1" source="pyapi" target="vpy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x27" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;" edge="1" parent="1" source="mysql" target="vdb">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x28" value="6379" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;dashed=1;" edge="1" parent="1" source="pyhss" target="redis">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="p2" name="2. Secuencia depósito / MWI / recuperación (actual)">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2060" pageHeight="1450" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t" value="Secuencia actual en DEV — depósito por MSISDN, MWI y recuperación con PIN (FEAT-02)" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="10" width="2000" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="st" value="Fuente [CODE]: public.xml, vm_pin.lua, maqueta_ifc.xml (iFC P10/P30/P40), FEAT-02_VMS_IMPLEMENTACION.md, interfaz/app.py. Gm protegido con IPsec ESP para UEs internos; RTP siempre anclado por RTPEngine (no dibujado)." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#444444;" vertex="1" parent="1">
+          <mxGeometry x="20" y="46" width="1750" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="h0" value="&lt;b&gt;UE1 (llamante)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="25" y="90" width="150" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="ll0" value="" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="100" y="134" as="sourcePoint" />
+            <mxPoint x="100" y="1400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="h1" value="&lt;b&gt;P-CSCF&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="195" y="90" width="150" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="ll1" value="" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" y="134" as="sourcePoint" />
+            <mxPoint x="270" y="1400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="h2" value="&lt;b&gt;I-CSCF&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="365" y="90" width="150" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="ll2" value="" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="134" as="sourcePoint" />
+            <mxPoint x="440" y="1400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="h3" value="&lt;b&gt;S-CSCF&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="535" y="90" width="150" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="ll3" value="" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="610" y="134" as="sourcePoint" />
+            <mxPoint x="610" y="1400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="h4" value="&lt;b&gt;PyHSS&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="705" y="90" width="150" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="ll4" value="" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="134" as="sourcePoint" />
+            <mxPoint x="780" y="1400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="h5" value="&lt;b&gt;AS-Front&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="875" y="90" width="150" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="ll5" value="" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="950" y="134" as="sourcePoint" />
+            <mxPoint x="950" y="1400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="h6" value="&lt;b&gt;FreeSWITCH&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1045" y="90" width="150" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="ll6" value="" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="134" as="sourcePoint" />
+            <mxPoint x="1120" y="1400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="h7" value="&lt;b&gt;Disco nodo .233&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1215" y="90" width="150" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="ll7" value="" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1290" y="134" as="sourcePoint" />
+            <mxPoint x="1290" y="1400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="h8" value="&lt;b&gt;UI API :8888 + MySQL&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1385" y="90" width="150" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="ll8" value="" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1460" y="134" as="sourcePoint" />
+            <mxPoint x="1460" y="1400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="h9" value="&lt;b&gt;UE2 (dueño buzón)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1555" y="90" width="150" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="ll9" value="" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1630" y="134" as="sourcePoint" />
+            <mxPoint x="1630" y="1400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pA" value="A. Depósito (TS 24.604 CDIV → VMS): UE2 no registrado" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=none;opacity=40;align=left;verticalAlign=top;fontStyle=1;fontSize=12;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="20" y="145" width="2010" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="pB" value="B. MWI (TS 24.606): suscripción y notificación" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=none;opacity=40;align=left;verticalAlign=top;fontStyle=1;fontSize=12;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="20" y="625" width="2010" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="pC" value="C. Recuperación con PIN (0100004)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=none;opacity=40;align=left;verticalAlign=top;fontStyle=1;fontSize=12;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="20" y="885" width="2010" height="510" as="geometry" />
+        </mxCell>
+        <mxCell id="m0" value="1 INVITE sip:0010100002 (ESP)" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="100" y="180" as="sourcePoint" />
+            <mxPoint x="270" y="180" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1" value="2 INVITE (S-CSCF orig.; sin iFC)" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" y="210" as="sourcePoint" />
+            <mxPoint x="610" y="210" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="3 INVITE terminating" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="610" y="240" as="sourcePoint" />
+            <mxPoint x="440" y="240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="4 LIR (Cx)" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="270" as="sourcePoint" />
+            <mxPoint x="780" y="270" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m4" value="5 LIA → S-CSCF" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;dashed=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="300" as="sourcePoint" />
+            <mxPoint x="440" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="6 INVITE" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="330" as="sourcePoint" />
+            <mxPoint x="610" y="330" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m6" value="7 SAR UNREGISTERED_USER" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="610" y="360" as="sourcePoint" />
+            <mxPoint x="780" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m7" value="8 SAA + perfil (iFC P40)" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;dashed=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="390" as="sourcePoint" />
+            <mxPoint x="610" y="390" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value="9 INVITE ISC (SessionCase 2)" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="610" y="420" as="sourcePoint" />
+            <mxPoint x="950" y="420" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="10 INVITE 0010100002" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="950" y="450" as="sourcePoint" />
+            <mxPoint x="1120" y="450" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value="11 200 OK (vía AS-Front / S-CSCF / P-CSCF) + RTP" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;dashed=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="480" as="sourcePoint" />
+            <mxPoint x="100" y="480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m11" value="12 voicemail default &amp;lt;dom&amp;gt; 0010100002 → msg_&amp;lt;uuid&amp;gt;.wav" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="530" as="sourcePoint" />
+            <mxPoint x="1290" y="530" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m13" value="14 SUBSCRIBE Event: message-summary" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1630" y="660" as="sourcePoint" />
+            <mxPoint x="270" y="660" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m14" value="15 SUBSCRIBE" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" y="690" as="sourcePoint" />
+            <mxPoint x="610" y="690" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m15" value="16 iFC P10 → ISC" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="610" y="720" as="sourcePoint" />
+            <mxPoint x="950" y="720" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m16" value="17 SUBSCRIBE → 202 Accepted" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="950" y="750" as="sourcePoint" />
+            <mxPoint x="1120" y="750" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m17" value="18 NOTIFY Messages-Waiting: yes (en diálogo)" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="790" as="sourcePoint" />
+            <mxPoint x="610" y="790" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m18" value="19 NOTIFY" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="610" y="820" as="sourcePoint" />
+            <mxPoint x="270" y="820" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m19" value="20 NOTIFY (SA ESP)" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" y="850" as="sourcePoint" />
+            <mxPoint x="1630" y="850" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m20" value="21 INVITE sip:0100004" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1630" y="920" as="sourcePoint" />
+            <mxPoint x="270" y="920" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m21" value="22 INVITE" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" y="950" as="sourcePoint" />
+            <mxPoint x="610" y="950" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m22" value="23 iFC P30 → ISC" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="610" y="980" as="sourcePoint" />
+            <mxPoint x="950" y="980" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m23" value="24 INVITE → lua vm_pin.lua" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="950" y="1010" as="sourcePoint" />
+            <mxPoint x="1120" y="1010" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m24" value="25 PIN 4 dígitos DTMF RFC 4733 (vía RTPEngine)" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1630" y="1050" as="sourcePoint" />
+            <mxPoint x="1120" y="1050" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m25" value="26 GET /api/pin/auth?caller&amp;pin" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="1090" as="sourcePoint" />
+            <mxPoint x="1460" y="1090" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m26" value="27 {&quot;ok&quot;:true} (SELECT vas.subscriber_pin)" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;dashed=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1460" y="1120" as="sourcePoint" />
+            <mxPoint x="1120" y="1120" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m27" value="28 vm_list + streamFile msg_&amp;lt;uuid&amp;gt;.wav" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="1160" as="sourcePoint" />
+            <mxPoint x="1290" y="1160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m28" value="29 audio G.711 (RTP vía RTPEngine)" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;dashed=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="1200" as="sourcePoint" />
+            <mxPoint x="1630" y="1200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m29" value="30 DTMF 7 = borrar · 2 = guardar" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1630" y="1240" as="sourcePoint" />
+            <mxPoint x="1120" y="1240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m30" value="31 vm_read / vm_delete" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="1280" as="sourcePoint" />
+            <mxPoint x="1290" y="1280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m31" value="32 NOTIFY Messages-Waiting: no → P-CSCF → UE2" style="html=1;endArrow=block;endFill=1;fontSize=10;labelBackgroundColor=#FFFFFF;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1120" y="1320" as="sourcePoint" />
+            <mxPoint x="610" y="1320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n13" value="13 evento MESSAGE_WAITING (mod_voicemail) → mod_sofia" style="shape=note;whiteSpace=wrap;html=1;size=14;align=left;verticalAlign=top;spacing=6;fillColor=#ffffff;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="552" width="160" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="n_disk" value="&lt;b&gt;Ruta real&lt;/b&gt;: /var/lib/freeswitch/storage/voicemail/default/&amp;lt;dominio&amp;gt;/&amp;lt;MSISDN&amp;gt;/ — NO está en el bind-mount (solo storage/vms lo está). [CODE]" style="shape=note;whiteSpace=wrap;html=1;size=14;align=left;verticalAlign=top;spacing=6;fillColor=#ffe6cc;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1730" y="470" width="290" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n_pin" value="Riesgo [CODE]: vm_pin.lua registra el PIN en el log («VMS_PIN attempt … pin=») y MySQL guarda el PIN en claro; /api/pin lo lista sin autenticación." style="shape=note;whiteSpace=wrap;html=1;size=14;align=left;verticalAlign=top;spacing=6;fillColor=#ffe6cc;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1730" y="1080" width="290" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n_web" value="Recuperación web actual: GET /api/vms/media → docker exec «cat» en freeswitch; solo buzón 0100003 y regex msg\d+\.wav (no coincide con msg_YYYYMMDD_HHMMSS.wav). [CODE]" style="shape=note;whiteSpace=wrap;html=1;size=14;align=left;verticalAlign=top;spacing=6;fillColor=#ffe6cc;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1730" y="1200" width="290" height="110" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="p3" name="3. Almacenamiento objetivo (depósito y recuperación)">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2160" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t" value="Arquitectura objetivo de almacenamiento y recuperación de buzones (PROPUESTA) — ~300 000 buzones, 500 000 mensajes/día" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="10" width="2100" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="st" value="[INFERENCE]/[ASSUMPTION] Diseño propuesto, no implementado. D = depósito · R = recuperación por voz · W = recuperación web · L = ciclo de vida. Dimensionamiento en almacenamiento_y_recuperacion_buzones.md." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#444444;" vertex="1" parent="1">
+          <mxGeometry x="20" y="46" width="2100" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="A" value="Plano de medios — AS VMS (N+1 nodos FreeSWITCH sin estado)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=12;swimlaneFillColor=#FFFFFF;collapsible=0;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="130" width="520" height="600" as="geometry" />
+        </mxCell>
+        <mxCell id="fsn" value="&lt;b&gt;FreeSWITCH nodo i&lt;/b&gt; (1..N)&lt;br&gt;record → WAV PCM16 8 kHz en spool local&lt;br&gt;playback desde caché local (mod_http_cache) o GET HTTP&lt;br&gt;G.711 / AMR-WB hacia la red (transcodifica al reproducir)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="A">
+          <mxGeometry x="20" y="40" width="480" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="spool" value="&lt;b&gt;Spool local&lt;/b&gt; SSD / tmpfs&lt;br&gt;/var/spool/vm/&amp;lt;uuid&amp;gt;.wav&lt;br&gt;se borra tras ACK de subida" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="A">
+          <mxGeometry x="20" y="175" width="230" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="cache" value="&lt;b&gt;Caché de lectura LRU&lt;/b&gt;&lt;br&gt;objetos .opus recientes&lt;br&gt;prefetch al validar el PIN" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="A">
+          <mxGeometry x="270" y="175" width="230" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="agent" value="&lt;b&gt;Agente de ingesta local&lt;/b&gt; (ESL: RECORD_STOP / CHANNEL_HANGUP)&lt;br&gt;1) transcodifica WAV → Opus 16 kbit/s mono, Ogg&lt;br&gt;2) PUT objeto (Content-MD5, If-None-Match) con reintentos&lt;br&gt;3) publica vm.stored" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="A">
+          <mxGeometry x="20" y="300" width="480" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="pinr" value="PIN / identidad: VM API (hash Argon2id + pepper en KMS);&lt;br&gt;bloqueo tras 3 intentos; PIN nunca en logs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="A">
+          <mxGeometry x="20" y="435" width="480" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="mwiA" value="Suscripciones MWI: el AS que recibe SUBSCRIBE (hash por buzón en AS-Front) emite NOTIFY al recibir el evento" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="A">
+          <mxGeometry x="20" y="515" width="480" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="B" value="Ingesta asíncrona" style="swimlane;whiteSpace=wrap;html=1;startSize=26;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=12;swimlaneFillColor=#FFFFFF;collapsible=0;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="130" width="380" height="600" as="geometry" />
+        </mxCell>
+        <mxCell id="queue" value="&lt;b&gt;Cola durable&lt;/b&gt; (Kafka / RabbitMQ quorum / Redis Streams)&lt;br&gt;tópico vm.stored · clave = mailbox_id (orden por buzón)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="B">
+          <mxGeometry x="20" y="40" width="340" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="wk" value="&lt;b&gt;Workers de metadatos&lt;/b&gt; (escalado horizontal)&lt;br&gt;INSERT vm_message … ON CONFLICT (msg_id, created_at) DO NOTHING&lt;br&gt;HINCRBY mwi:{buzón} new 1&lt;br&gt;publica mwi.changed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="B">
+          <mxGeometry x="20" y="155" width="340" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="dlq" value="&lt;b&gt;DLQ&lt;/b&gt; + reintentos exponenciales&lt;br&gt;(1 s → 15 min; alerta a los 3 fallos)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="B">
+          <mxGeometry x="20" y="290" width="340" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="rec" value="&lt;b&gt;Reconciliador&lt;/b&gt; (diario)&lt;br&gt;spool sin ACK → re-subida · objeto sin fila → re-publica · fila sin objeto → alerta" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="B">
+          <mxGeometry x="20" y="385" width="340" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="Cc" value="Servicio de buzones" style="swimlane;whiteSpace=wrap;html=1;startSize=26;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=12;swimlaneFillColor=#FFFFFF;collapsible=0;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="960" y="130" width="380" height="600" as="geometry" />
+        </mxCell>
+        <mxCell id="vmapi" value="&lt;b&gt;VM API&lt;/b&gt; (REST / gRPC, sin estado)&lt;br&gt;GET /mailboxes/{id}/messages?folder=inbox&amp;amp;cursor=…&lt;br&gt;PATCH /messages/{id} (read / saved / deleted)&lt;br&gt;POST /mailboxes/{id}/pin:verify&lt;br&gt;GET /messages/{id}/audio → 302 URL prefirmada" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="Cc">
+          <mxGeometry x="20" y="40" width="340" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="mwi" value="&lt;b&gt;Publicador MWI&lt;/b&gt;&lt;br&gt;mwi.changed → MESSAGE_WAITING (ESL) en el AS de la suscripción" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="Cc">
+          <mxGeometry x="20" y="205" width="340" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="life" value="&lt;b&gt;Jobs de ciclo de vida&lt;/b&gt; [ASSUMPTION]&lt;br&gt;nuevos / leídos: expiran a 30 d · guardados: 90 d&lt;br&gt;borrado lógico → purga física a 7 d&lt;br&gt;DROP PARTITION mensual" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="Cc">
+          <mxGeometry x="20" y="300" width="340" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="gw" value="&lt;b&gt;API Gateway&lt;/b&gt;&lt;br&gt;OAuth2 / OIDC · TLS · rate-limit · auditoría" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="Cc">
+          <mxGeometry x="20" y="425" width="340" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="Dd" value="Datos" style="swimlane;whiteSpace=wrap;html=1;startSize=26;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=12;swimlaneFillColor=#FFFFFF;collapsible=0;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="1360" y="130" width="330" height="600" as="geometry" />
+        </mxCell>
+        <mxCell id="pg" value="&lt;b&gt;PostgreSQL&lt;/b&gt; (primario + réplica síncrona + réplica de lectura)&lt;br&gt;vm_message PARTITION BY RANGE (created_at) mensual&lt;br&gt;PK (msg_id, created_at) · índice (mailbox_id, folder, created_at DESC)&lt;br&gt;vm_mailbox (msisdn_hmac, tenant, pin_hash, cuota)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="Dd">
+          <mxGeometry x="20" y="40" width="290" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="rd" value="&lt;b&gt;Redis Cluster&lt;/b&gt;&lt;br&gt;HSET mwi:{buzón} new saved&lt;br&gt;caché; la verdad es PostgreSQL" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="Dd">
+          <mxGeometry x="20" y="225" width="290" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="kms" value="&lt;b&gt;KMS / Vault&lt;/b&gt;&lt;br&gt;claves SSE por tenant · pepper PIN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="Dd">
+          <mxGeometry x="20" y="340" width="290" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pgbk" value="&lt;b&gt;Backup PostgreSQL&lt;/b&gt;&lt;br&gt;base semanal + WAL continuo (PITR) → bucket backup" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="Dd">
+          <mxGeometry x="20" y="435" width="290" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="Ee" value="Almacenamiento de objetos S3-compatible (MinIO / Ceph RGW)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=12;swimlaneFillColor=#FFFFFF;collapsible=0;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="1710" y="130" width="420" height="600" as="geometry" />
+        </mxCell>
+        <mxCell id="hot" value="&lt;b&gt;Bucket vm-audio — tier caliente&lt;/b&gt; (NVMe/SSD, EC 4+2)&lt;br&gt;clave: {tenant}/{h2}/{msisdn_hmac}/{yyyy}/{mm}/{dd}/{uuid}.opus&lt;br&gt;h2 = 2 hex del hash → reparte prefijos&lt;br&gt;SSE-KMS · versioning · object lock opcional" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="Ee">
+          <mxGeometry x="20" y="40" width="380" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="cold" value="&lt;b&gt;Tier frío&lt;/b&gt; (HDD, EC 8+3)&lt;br&gt;transición lifecycle a 30 d para «saved»" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="Ee">
+          <mxGeometry x="20" y="215" width="380" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="siteb" value="&lt;b&gt;Sitio B&lt;/b&gt;: replicación asíncrona del bucket&lt;br&gt;(RPO de minutos) [ASSUMPTION]" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="Ee">
+          <mxGeometry x="20" y="330" width="380" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="greet" value="Prefijo greetings/{tenant}/{msisdn_hmac}/greeting.opus&lt;br&gt;(saludos personalizados, caché agresiva)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="Ee">
+          <mxGeometry x="20" y="435" width="380" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="K" value="Clientes de recuperación" style="swimlane;whiteSpace=wrap;html=1;startSize=26;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=12;swimlaneFillColor=#FFFFFF;collapsible=0;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="770" width="920" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="ueC" value="&lt;b&gt;UE IMS&lt;/b&gt; → SBC/P-CSCF → S-CSCF → iFC → AS-Front → FreeSWITCH&lt;br&gt;(depósito por desvío CDIV; recuperación marcando el número de buzón)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="K">
+          <mxGeometry x="20" y="45" width="430" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="web" value="&lt;b&gt;Portal web / app&lt;/b&gt;&lt;br&gt;reproductor HTML5 (Ogg Opus; MP3/AAC bajo demanda si el navegador no soporta Ogg)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="K">
+          <mxGeometry x="470" y="45" width="430" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="dm" value="&lt;b&gt;Modelo de metadatos (vm_message)&lt;/b&gt;&lt;br&gt;msg_id UUID · mailbox_id BIGINT · tenant_id · created_at TIMESTAMPTZ · duration_ms INT · folder (inbox|saved) · state (new|read|deleted) · codec (opus/16k) · size_bytes · object_key · sha256 · caller_id · deleted_at · expires_at&lt;br&gt;Listar un buzón = búsqueda por índice (mailbox_id, folder, created_at DESC) en 1-4 particiones activas → O(log n) por partición; paginación por cursor (created_at, msg_id)." style="shape=note;whiteSpace=wrap;html=1;size=14;align=left;verticalAlign=top;spacing=6;fillColor=#ffffff;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="960" y="770" width="730" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="leg" value="Leyenda" style="swimlane;whiteSpace=wrap;html=1;startSize=26;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=12;swimlaneFillColor=#FFFFFF;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="1710" y="770" width="420" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s0" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="36" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t0" value="Acceso / borde (VPN, P-CSCF, RTPEngine)" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="34" width="364" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s1" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="60" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t1" value="Núcleo IMS (I/S-CSCF, HSS, DNS)" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="58" width="364" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s2" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="84" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t2" value="Aplicación (AS-Front, FreeSWITCH, UI, workers)" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="82" width="364" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s3" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="108" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t3" value="Datos (MySQL, SQLite, Redis, PostgreSQL)" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="106" width="364" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s4" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="132" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t4" value="Almacenamiento de audio / volúmenes" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="130" width="364" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s5" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="156" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t5" value="Riesgo detectado en el código" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="154" width="364" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s6" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f2ff;strokeColor=#3a6ea5;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="180" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t6" value="Red overlay / bridge" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="178" width="364" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_s7" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;arcSize=8;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="204" width="28" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t7" value="Externo / gestión" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=11;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="48" y="202" width="364" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_e" value="Etiquetas de arista: protocolo · puerto/transporte. Línea discontinua = respuesta, flujo opcional o propuesta." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=10;spacing=4;" vertex="1" parent="leg">
+          <mxGeometry x="12" y="232" width="398" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="D1" value="D1 INVITE (CDIV) · RTP G.711/AMR" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0;exitY=0.3;entryX=0;entryY=0.5;" edge="1" parent="1" source="ueC" target="fsn">
+          <mxGeometry relative="1" as="geometry" x="-0.2">
+            <Array as="points">
+              <mxPoint x="30" y="842" />
+              <mxPoint x="30" y="225" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="D2" value="D2 record WAV" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.24;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="fsn" target="spool">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="D3" value="D3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.5;exitY=1;entryX=0.24;entryY=0;" edge="1" parent="1" source="spool" target="agent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="D4" value="D4 PUT {key}.opus (TLS, reintentos)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.2;entryX=0;entryY=0.85;" edge="1" parent="1" source="agent" target="hot">
+          <mxGeometry relative="1" as="geometry" x="0.35" y="-8">
+            <Array as="points">
+              <mxPoint x="550" y="452" />
+              <mxPoint x="550" y="116" />
+              <mxPoint x="1700" y="116" />
+              <mxPoint x="1700" y="298" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="D5" value="D5 vm.stored" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.6;entryX=0;entryY=0.5;" edge="1" parent="1" source="agent" target="queue">
+          <mxGeometry relative="1" as="geometry" x="0.0">
+            <Array as="points">
+              <mxPoint x="554" y="496" />
+              <mxPoint x="554" y="215" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="D6" value="D6 consume" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;" edge="1" parent="1" source="queue" target="wk">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="D7" value="D7 INSERT … ON CONFLICT" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.3;entryX=0;entryY=0.6;" edge="1" parent="1" source="wk" target="pg">
+          <mxGeometry relative="1" as="geometry" x="0.1">
+            <Array as="points">
+              <mxPoint x="948" y="318" />
+              <mxPoint x="948" y="742" />
+              <mxPoint x="1368" y="742" />
+              <mxPoint x="1368" y="266" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="D8" value="D8 HINCRBY" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.8;entryX=0;entryY=0.5;" edge="1" parent="1" source="wk" target="rd">
+          <mxGeometry relative="1" as="geometry" x="0.35">
+            <Array as="points">
+              <mxPoint x="954" y="373" />
+              <mxPoint x="954" y="754" />
+              <mxPoint x="1376" y="754" />
+              <mxPoint x="1376" y="400" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="D9" value="D9 mwi.changed" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="wk" target="mwi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="D10" value="D10 MESSAGE_WAITING → NOTIFY" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;dashed=1;exitX=0.15;exitY=0;entryX=0.6;entryY=0;" edge="1" parent="1" source="mwi" target="fsn">
+          <mxGeometry relative="1" as="geometry" x="-0.2" y="-8">
+            <Array as="points">
+              <mxPoint x="1031" y="96" />
+              <mxPoint x="328" y="96" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Dx" value="fallo" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;dashed=1;" edge="1" parent="1" source="wk" target="dlq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="R1" value="R1 pin:verify · lista (REST)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.927;entryX=0;entryY=0.729;" edge="1" parent="1" source="fsn" target="vmapi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="R2" value="R2 SELECT por índice" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.25;entryX=0;entryY=0.25;" edge="1" parent="1" source="vmapi" target="pg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="R3" value="R3 lookup" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.75;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="fsn" target="cache">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="R4" value="R4 GET objeto (miss)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;dashed=1;exitX=1;exitY=0.3;entryX=0;entryY=0.6;" edge="1" parent="1" source="cache" target="hot">
+          <mxGeometry relative="1" as="geometry" x="-0.1" y="-8">
+            <Array as="points">
+              <mxPoint x="530" y="335" />
+              <mxPoint x="530" y="106" />
+              <mxPoint x="1706" y="106" />
+              <mxPoint x="1706" y="260" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="R5" value="R5 PATCH read / deleted → MWI" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.9;entryX=0;entryY=0.25;" edge="1" parent="1" source="vmapi" target="rd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="W1" value="W1 HTTPS" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.85;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="web" target="gw">
+          <mxGeometry relative="1" as="geometry" x="0.0">
+            <Array as="points">
+              <mxPoint x="856" y="752" />
+              <mxPoint x="1150" y="752" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="W2" value="W2 REST" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.85;exitY=0;entryX=0.85;entryY=1;" edge="1" parent="1" source="gw" target="vmapi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="W3" value="W3 firma URL (sin audio)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;dashed=1;exitX=0.85;exitY=0;entryX=0;entryY=0.3;" edge="1" parent="1" source="vmapi" target="hot">
+          <mxGeometry relative="1" as="geometry" x="0.2" y="-8">
+            <Array as="points">
+              <mxPoint x="1269" y="86" />
+              <mxPoint x="1702" y="86" />
+              <mxPoint x="1702" y="215" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="W4" value="W4 GET URL prefirmada (TTL 300 s, Range)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;dashed=1;exitX=0.5;exitY=1;entryX=1;entryY=0.5;" edge="1" parent="1" source="web" target="hot">
+          <mxGeometry relative="1" as="geometry" x="-0.3">
+            <Array as="points">
+              <mxPoint x="705" y="1100" />
+              <mxPoint x="2148" y="1100" />
+              <mxPoint x="2148" y="245" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="L1" value="L1 lifecycle" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;" edge="1" parent="1" source="hot" target="cold">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="L2" value="L2 replicación" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.8;entryX=1;entryY=0.5;" edge="1" parent="1" source="hot" target="siteb">
+          <mxGeometry relative="1" as="geometry" x="0.0">
+            <Array as="points">
+              <mxPoint x="2122" y="290" />
+              <mxPoint x="2122" y="500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="L3" value="L3 expira · DROP PARTITION" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=1;exitY=0.3;entryX=0;entryY=0.9;" edge="1" parent="1" source="life" target="pg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="L4" value="WAL" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;exitX=0.85;exitY=1;entryX=0.85;entryY=0;" edge="1" parent="1" source="pg" target="pgbk">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="L5" value="SSE-KMS" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=10;labelBackgroundColor=#FFFFFF;endArrow=block;endFill=1;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.95;" edge="1" parent="1" source="kms" target="hot">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

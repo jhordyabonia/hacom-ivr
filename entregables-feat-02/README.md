@@ -1,6 +1,6 @@
 # Entregables FEAT-02 — maqueta IMS uVAS
 
-Rama: `feature/feat-02` · Fecha: 2026-10-06 · Actualizado: 2026-10-14 (despliegue DEV en Swarm)
+Rama: `feature/feat-02` · Fecha: 2026-10-06 · Actualizado: 2026-10-27 (acceso externo por VPN, arquitectura, estrés y QA)
 
 | # | Entregable | Archivo |
 |---|---|---|
@@ -9,6 +9,12 @@ Rama: `feature/feat-02` · Fecha: 2026-10-06 · Actualizado: 2026-10-14 (desplie
 | 3 | Iteraciones captura → análisis → corrección (29 corridas) | `03_iteraciones/BITACORA_ITERACIONES.md` y `03_iteraciones/iter-*/` |
 | 4 | Avance, cronograma PMV y paso a paso a DEV (diapositivas) | `04_presentaciones/FEAT-02_avance_PMV_ruta_DEV.pptx` (+ PDF) |
 | 4 | Tutorial: conectar un softphone externo | `04_presentaciones/Tutorial_softphone_externo.pptx` (+ PDF) y `TUTORIAL_SOFTPHONE_EXTERNO.md` |
+| 5 | Arquitectura alto nivel (vista lógica DEV y objetivo producción) | `06_arquitectura/arquitectura_alto_nivel.drawio` |
+| 6 | Arquitectura bajo nivel (red/puertos DEV, secuencia de buzón, almacenamiento objetivo) | `06_arquitectura/arquitectura_bajo_nivel.drawio` |
+| 7 | Almacenamiento y recuperación de buzones a escala (cientos de miles de buzones) | `06_arquitectura/almacenamiento_y_recuperacion_buzones.md` |
+| 8 | Matriz comparativa de formatos de audio (recomendación: Opus 16 kbit/s) | `06_arquitectura/matriz_formatos_audio.md` |
+| 9 | Pruebas de estrés DEV (CPU, RAM, red, latencias) | `07_pruebas_estres/INFORME_PRUEBAS_ESTRES.md` (+ PDF, gráficas y datos crudos) |
+| 10 | Informe de QA con capturas y registro de defectos | `08_qa/INFORME_QA.md` (+ PDF y `capturas/`) |
 
 ## Resultado
 
