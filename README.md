@@ -195,6 +195,48 @@ docker exec mims3_pyhss_hss python3 /tmp/ue_aka_probe.py
 
 ---
 
+## 5-bis. Entorno DEV (Docker Swarm, 3 nodos) y acceso externo
+
+**Nodos** (etiqueta `role`, usada en `deploy.placement`):
+
+| Nodo | IP | `role` | Servicios |
+|---|---|---|---|
+| `hcmimsbed01` (manager) | 192.168.5.231 | `core-ims` | dns, icscf, scscf, pcscf, asfront, rtpengine |
+| `hcmimsdbd01` | 192.168.5.232 | `database` | mysql, redis, pyhss_* |
+| `hcmimsfed01` | 192.168.5.233 | `ivr` | freeswitch, softphone, ui (`:8090`) |
+
+- **Archivos:** cada nodo tiene una copia del repo en `/home/administrator/maqueta-ims-3`. Los montajes de `docker-compose.swarm.yml` usan esa ruta absoluta, así que hay que actualizarla en el nodo donde corre el servicio.
+- **Imágenes:** se construyen en el propio nodo (no hay registro). Por ejemplo, `cd interfaz && docker build -t mims3_ui:<tag> .` en `.233`. La etiqueta `latest` debe apuntar a la imagen en uso.
+- **Variables Swarm:** `.env.swarm`, que va sobre `.env`.
+- **Aplicar un cambio:** desde el manager (`.231`), con `docker service update`:
+  - `--image` para una imagen nueva;
+  - `--force` para recargar configuración montada;
+  - `--mount-add` / `--env-add` / `--publish-add` para lo nuevo del compose.
+  Guarda antes una copia de los archivos que sustituyes en el nodo.
+- **Pendiente:** la recreación completa del stack desde cero no está automatizada. `docker compose -f docker-compose.yml -f docker-compose.swarm.yml config` combina bien los archivos, pero `docker stack config` rechaza el resultado (puertos publicados como texto).
+- **Regresión contra DEV:** desde un PC con VPN y SSH a los nodos (clave o `SSH_ASKPASS` propio, nunca en el repo):
+  ```bash
+  cd maqueta-ims-3 && SWARM_MODE=1 bash scripts/test_maqueta.sh   # esperado 22/22
+  ```
+
+**Acceso externo por VPN** (softphones Android/PC; activo en DEV):
+- **SIP:** el P-CSCF está publicado en `192.168.5.231:5060` UDP/TCP (modo host; `EXT_ADVERTISE_IP`). Los clientes deben usar **TCP**.
+- **Autenticación:** perfil no-3GPP SIP Digest MD5 (`NON3GPP_DIGEST=1`).
+  - Usuario Digest: `MSISDN@dominio`.
+  - Contraseña: la Ki del abonado en PyHSS.
+  - Los UE IMS-AKA no se ven afectados (cabecera interna `P-Maqueta-Non3GPP`).
+- **Medios:** RTPEngine con interfaz `ext` en 49900–49999/UDP y `offer-timeout=60`.
+- **Persistencia y PIN:**
+  - buzones `mod_voicemail` persistentes en los volúmenes `mims3_fs_voicemail` y `mims3_fs_db`;
+  - grabaciones del `0100003` con nombre único `msg_<fecha>_<uuid>.wav`;
+  - PIN de buzón guardados como hash PBKDF2 (`vas.subscriber_pin.pin_hash`), validados por `POST /api/pin/auth` con bloqueo tras 5 fallos.
+- **Guía de usuario:** `entregables-feat-02/04_presentaciones/Manual_3.0_conexion_dispositivos_android.md`.
+- **Arquitectura, estrés y QA:** `entregables-feat-02/` (`06_arquitectura`, `07_pruebas_estres`, `08_qa`).
+
+> El repositorio es **público**: no subas credenciales de VPN ni de SSH, ni inventarios de acceso. `.gitignore` ya excluye el CSV de accesos y los scripts `ssh-askpass-*`. Las Ki de `.env` son material de laboratorio (QA-18: sacarlas del repo antes de cualquier entorno real).
+
+---
+
 ## 6. Cómo funciona por dentro (mapa de la maqueta)
 
 | Servicio | Archivo clave | Rol |
@@ -227,7 +269,7 @@ docker exec mims3_pyhss_hss python3 /tmp/ue_aka_probe.py
 | Tras recrear contenedores, la sonda AKA no existe | `ue_aka_probe.py` no está montado | Re-ejecutar `docker cp scripts/ue_aka_probe.py mims3_pyhss_hss:/tmp/`. |
 | IPsec: `delete_unused_sa(): ... netlink` en el P-CSCF | Limpieza de SA no usadas de `ims_ipsec_pcscf` | Ruido sin efecto funcional; las SA ESP reales se crean (`ip xfrm state` en `mims3_pcscf`). |
 | UE: `sec-agree: fallo instalando SA` | SA residuales en el softphone | `docker exec mims3_softphone sh -c "ip xfrm state flush; ip xfrm policy flush"`. |
-| Softphone comercial (Zoiper/Linphone) no registra (403) | Solo se admite IMS-AKA | Perfil Digest no-3GPP opcional: `WITH_NON3GPP_DIGEST` en `scscf/scscf.cfg` (solo DEV). |
+| Softphone comercial (Zoiper/Linphone) no registra (403) | Perfil Digest no-3GPP desactivado | `NON3GPP_DIGEST=1` (activa `WITH_NON3GPP_DIGEST` en el S-CSCF). En DEV ya está activo: ver §5-bis y el manual 3.0. |
 | Red `172.32.0.0/24` colisiona con otra | .env | Cambiar `TEST_NETWORK` y las IPs de `.env` (ocuparse de que DNS/compose coincidan). |
 
 ---
