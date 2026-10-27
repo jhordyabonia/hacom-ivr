@@ -17,8 +17,10 @@ local invalid = "/mnt/freeswitch/audio/pin_invalido.wav"
 freeswitch.consoleLog("notice", "VMS_PIN start caller=" .. caller .. " domain=" .. domain .. "\n")
 
 -- busybox wget (el wget GNU del contenedor segfallea con HTTPS/DNS interno).
-local function api_get(query)
-  local cmd = "/bin/busybox wget -q -O - --timeout=3 'http://" .. ui_host .. query .. "' 2>/dev/null"
+-- POST: el PIN no viaja en la URL ni queda en el log de accesos de la UI (QA-12).
+-- caller y pin se validan como dígitos antes de componer el comando.
+local function api_post(path, body)
+  local cmd = "/bin/busybox wget -q -O - --timeout=3 --post-data='" .. body .. "' 'http://" .. ui_host .. path .. "' 2>/dev/null"
   local f = io.popen(cmd, "r")
   if not f then return "" end
   local out = f:read("*a")
@@ -96,9 +98,10 @@ while tries > 0 do
   -- PIN de 4 dígitos (min=max=4), terminador '#', 6 s entre dígitos.
   session:execute("play_and_get_digits", "4 4 1 6000 # " .. prompt .. " " .. invalid .. " vm_pin_digits \\d+")
   pin = session:getVariable("vm_pin_digits") or ""
-  freeswitch.consoleLog("notice", "VMS_PIN attempt caller=" .. caller .. " pin=" .. pin .. "\n")
-  if #pin >= 4 and pin:match("^%d+$") then
-    local resp = api_get("/api/pin/auth?caller=" .. caller .. "&pin=" .. pin)
+  -- Nunca se registra el PIN, solo su longitud (QA-12).
+  freeswitch.consoleLog("notice", "VMS_PIN attempt caller=" .. caller .. " digits=" .. #pin .. "\n")
+  if #pin >= 4 and pin:match("^%d+$") and caller:match("^%d+$") then
+    local resp = api_post("/api/pin/auth", "caller=" .. caller .. "&pin=" .. pin)
     if resp:find('"ok":true') or resp:find('"ok": true') then
       freeswitch.consoleLog("notice", "VMS_PIN ok caller=" .. caller .. "\n")
       retrieve(caller, domain)

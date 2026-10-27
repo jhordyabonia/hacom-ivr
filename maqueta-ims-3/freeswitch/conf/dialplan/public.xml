@@ -30,7 +30,11 @@
         <action application="sleep" data="1000"/>
         <action application="set" data="vms_dir=/var/lib/freeswitch/storage/vms/0100003/INBOX"/>
         <action application="system" data="mkdir -p ${vms_dir}"/>
-        <action application="strftime" data="vms_file=${vms_dir}/msg_%Y%m%d_%H%M%S.wav"/>
+        <!-- ${uuid} en el nombre: dos depósitos en el mismo segundo no se
+             sobrescriben (QA-10: 160 depósitos concurrentes daban 36 archivos).
+             strftime solo para la fecha: su salida se trunca a ~80 caracteres. -->
+        <action application="strftime" data="vms_ts=%Y%m%d_%H%M%S"/>
+        <action application="set" data="vms_file=${vms_dir}/msg_${vms_ts}_${uuid}.wav"/>
         <action application="record" data="${vms_file} 300 0 0"/>
         <action application="hangup"/>
       </condition>

@@ -8,11 +8,14 @@ Backend Flask que usa el socket de Docker para:
   - configuración de suscriptores (lectura + provisionado en PyHSS)
   - consulta de logs de los nodos
 """
+import hashlib
+import hmac
 import io
 import json
 import math
 import os
 import re
+import secrets
 import shlex
 import struct
 import tarfile
@@ -467,26 +470,73 @@ def result(ok, name, detail=""):
 
 
 # ---------- helpers PIN (FEAT-02: buzón por MSISDN, recuperación) ----------
+# QA-12: el PIN se guarda solo como hash PBKDF2-SHA256 con sal (columna
+# pin_hash); la columna `pin` queda vacía. Los PIN en claro existentes (seed de
+# mysql_init.sh o versiones anteriores) se migran en ensure_pin_schema().
+PIN_ITER = 100_000
+PIN_MAX_FAILS, PIN_LOCK_S = 5, 900
+_pin_fails = {}  # msisdn -> [marcas de tiempo de intentos fallidos]
+
+
+def pin_hash(pin, salt=None):
+    salt = salt or secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", pin.encode(), bytes.fromhex(salt), PIN_ITER)
+    # Separador ':' (no '$'): el valor viaja dentro de un comando de shell con
+    # comillas dobles hacia mysql y '$' se expandiría.
+    return f"pbkdf2_sha256:{PIN_ITER}:{salt}:{dk.hex()}"
+
+
+def pin_verify(pin, stored):
+    try:
+        algo, it, salt, hexd = stored.split(":")
+        dk = hashlib.pbkdf2_hmac("sha256", pin.encode(), bytes.fromhex(salt), int(it))
+        return algo == "pbkdf2_sha256" and hmac.compare_digest(dk.hex(), hexd)
+    except (ValueError, AttributeError):
+        return False
+
+
 def ensure_pin_schema():
-    """Esquema vas.subscriber_pin idempotente (el contenedor mysql puede estar
-    arrancando; se tolera el fallo y el schema se garantiza en mysql_init.sh)."""
+    """Esquema vas.subscriber_pin idempotente y migración de PIN en claro a hash
+    (el contenedor mysql puede estar arrancando; se tolera el fallo y el schema
+    también se garantiza en mysql_init.sh)."""
     rc, _ = sh(MYSQL, """mysql -u root -e "CREATE DATABASE IF NOT EXISTS vas CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS vas.subscriber_pin (
   msisdn VARCHAR(20) NOT NULL PRIMARY KEY,
-  pin VARCHAR(8) NOT NULL,
+  pin VARCHAR(8) NOT NULL DEFAULT '',
+  pin_hash VARCHAR(128) NULL,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 INSERT IGNORE INTO vas.subscriber_pin (msisdn, pin) VALUES
   ('0010100001','1234'), ('0010100002','5678');" """)
-    return rc == 0
+    if rc != 0:
+        return False
+    rc, out = sh(MYSQL, "mysql -u root -N -e \"SELECT COUNT(*) FROM information_schema.COLUMNS "
+                        "WHERE TABLE_SCHEMA='vas' AND TABLE_NAME='subscriber_pin' AND COLUMN_NAME='pin_hash'\"")
+    if out.strip() == "0":
+        sh(MYSQL, "mysql -u root -e \"ALTER TABLE vas.subscriber_pin ADD COLUMN pin_hash VARCHAR(128) NULL AFTER pin\"")
+    rc, out = sh(MYSQL, "mysql -u root -N -e \"SELECT msisdn, pin FROM vas.subscriber_pin WHERE pin <> ''\"")
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            # Valores validados (dígitos / hex): SQL literal sin riesgo de inyección.
+            sh(MYSQL, f"mysql -u root -e \"UPDATE vas.subscriber_pin SET pin_hash='{pin_hash(parts[1])}', pin='' "
+                      f"WHERE msisdn='{parts[0]}'\"")
+    return True
 
 
 def pin_auth(caller, pin):
-    """True si <pin> coincide con vas.subscriber_pin del MSISDN.
-    SQL literal: valores sanitizados en los endpoints (dígitos)."""
-    rc, out = sh(MYSQL,
-                 f"mysql -u root -N -e \"SELECT COUNT(*) FROM vas.subscriber_pin WHERE msisdn='{caller}' AND pin='{pin}'\"")
-    return rc == 0 and out.strip() == "1"
+    """True si <pin> coincide con el hash de vas.subscriber_pin del MSISDN.
+    Tras PIN_MAX_FAILS fallos en PIN_LOCK_S s el buzón queda bloqueado ese tiempo.
+    SQL literal: `caller` validado como dígitos en el endpoint."""
+    now = time.time()
+    fails = [t for t in _pin_fails.get(caller, []) if now - t < PIN_LOCK_S]
+    if len(fails) >= PIN_MAX_FAILS:
+        _pin_fails[caller] = fails
+        return None  # bloqueado
+    rc, out = sh(MYSQL, f"mysql -u root -N -e \"SELECT pin_hash FROM vas.subscriber_pin WHERE msisdn='{caller}'\"")
+    ok = rc == 0 and pin_verify(pin, out.strip())
+    _pin_fails[caller] = [] if ok else fails + [now]
+    return ok
 
 
 # ---------- endpoints ----------
@@ -502,26 +552,29 @@ def health():
 
 @app.get("/api/pin")
 def api_pin():
-    """Lista de PINs provisionados (debug/operación, FEAT-02)."""
+    """Buzones con PIN configurado (FEAT-02). Nunca devuelve el PIN ni su hash."""
     ensure_pin_schema()
-    rc, out = sh(MYSQL, "mysql -u root -N -e 'SELECT msisdn, pin FROM vas.subscriber_pin ORDER BY msisdn'")
+    rc, out = sh(MYSQL, "mysql -u root -N -e \"SELECT msisdn, pin_hash IS NOT NULL, updated_at "
+                        "FROM vas.subscriber_pin ORDER BY msisdn\"")
     rows = []
     for line in out.splitlines():
-        parts = line.split()
-        if len(parts) == 2:
-            rows.append({"msisdn": parts[0], "pin": parts[1]})
+        parts = line.split("\t")
+        if len(parts) == 3:
+            rows.append({"msisdn": parts[0], "pin_configurado": parts[1] == "1", "actualizado": parts[2]})
     return jsonify({"ok": rc == 0, "pins": rows})
 
 
-@app.get("/api/pin/auth")
+@app.post("/api/pin/auth")
 def api_pin_auth():
-    """Autentica el PIN del MSISDN (usado por vm_pin.lua al recuperar el buzón)."""
-    ensure_pin_schema()
-    caller = request.args.get("caller", "")
-    pin = request.args.get("pin", "")
+    """Autentica el PIN del MSISDN (usado por vm_pin.lua al recuperar el buzón).
+    POST con formulario: el PIN no queda en la URL ni en el log de accesos."""
+    caller = request.form.get("caller", "")
+    pin = request.form.get("pin", "")
     if not (caller.isdigit() and pin.isdigit()):
         return jsonify({"ok": False, "error": "caller/pin deben ser digitos"}), 400
     ok = pin_auth(caller, pin)
+    if ok is None:
+        return jsonify({"ok": False, "caller": caller, "error": "bloqueado"}), 429
     return jsonify({"ok": ok, "caller": caller})
 
 
@@ -804,9 +857,9 @@ def api_vms_media():
     """Streaming del audio de un mensaje (reproductor en la pestaña VMS)."""
     mailbox = request.args.get("mailbox", VM_MAILBOX)
     msg = os.path.basename(request.args.get("msg", ""))
-    # FreeSWITCH graba msg_AAAAMMDD_HHMMSS.wav (dialplan 0100003); se aceptan
-    # también los msgNNNN.wav heredados de la maqueta con Asterisk.
-    if not re.fullmatch(r"msg(_\d{8}_\d{6}|\d+)\.wav", msg.lower()):
+    # FreeSWITCH graba msg_AAAAMMDD_HHMMSS_<uuid>.wav (dialplan 0100003; antes
+    # sin uuid); se aceptan también los msgNNNN.wav heredados de Asterisk.
+    if not re.fullmatch(r"msg(_\d{8}_\d{6}(_[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})?|\d+)\.wav", msg.lower()):
         return jsonify({"error": "mensaje inválido"}), 400
     data = vms_read_file(mailbox, msg)
     if data is None:
@@ -884,4 +937,6 @@ def api_logs():
 
 
 if __name__ == "__main__":
+    # Migra los PIN en claro a hash antes de aceptar peticiones (QA-12).
+    ensure_pin_schema()
     app.run(host="0.0.0.0", port=8888, debug=False)

@@ -269,6 +269,10 @@ services:
       - ./freeswitch:/mnt/freeswitch
       - ./freeswitch/scripts:/usr/share/freeswitch/scripts
       - ./freeswitch/vms:/var/lib/freeswitch/storage/vms
+      # FEAT-02: mensajes de mod_voicemail y su índice SQLite (voicemail_default.db)
+      # fuera de la capa del contenedor; sin esto se perdían al recrearlo (QA-11).
+      - fs_voicemail:/var/lib/freeswitch/storage/voicemail
+      - fs_db:/var/lib/freeswitch/db
       - /etc/localtime:/etc/localtime:ro
     depends_on:
       - dns
@@ -339,3 +343,7 @@ volumes:
     name: mims3_pyhss_db
   ui_config:
     name: mims3_ui_config
+  fs_voicemail:
+    name: mims3_fs_voicemail
+  fs_db:
+    name: mims3_fs_db

@@ -74,11 +74,13 @@ then
 fi
 
 # FEAT-02 (VMS): PIN de los buzones por MSISDN. Idempotente: los PINs seed solo
-# se insertan si el MSISDN aún no existe (no machaca cambios de la UI).
+# se insertan si el MSISDN aún no existe (no machaca cambios de la UI). Se
+# insertan en claro y la UI los migra a pin_hash (PBKDF2) al arrancar (QA-12).
 mysql -u root -e "CREATE DATABASE IF NOT EXISTS vas CHARACTER SET utf8mb4;"
 mysql -u root -e "CREATE TABLE IF NOT EXISTS vas.subscriber_pin (
   msisdn VARCHAR(20) NOT NULL PRIMARY KEY,
-  pin VARCHAR(8) NOT NULL,
+  pin VARCHAR(8) NOT NULL DEFAULT '',
+  pin_hash VARCHAR(128) NULL,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );"
 mysql -u root -e "INSERT IGNORE INTO vas.subscriber_pin (msisdn, pin) VALUES ('0010100001','1234'),('0010100002','5678');"
