@@ -37,6 +37,30 @@ if [ "${SWARM_MODE:-0}" = "1" ]; then
 	fi
 	INTERFACE="$OVERLAY_IP"
 	LISTEN_NG="$OVERLAY_IP:2223"
+	# Acceso externo: interfaz "ext" en docker_gwbridge con pool propio
+	# (publicado en modo host) y la IP del nodo en el SDP; "int" = overlay.
+	if [ -n "$EXT_ADVERTISE_IP" ]; then
+		EXT_DEV="$(ip route show default | awk 'NR == 1 {print $5}')"
+		EXT_IP="$(ip -o -4 addr show dev "$EXT_DEV" scope global | awk 'NR == 1 {split($4, a, "/"); print a[1]}')"
+		if [ -z "$EXT_IP" ]; then
+			echo "No se pudo determinar la IP externa de RTPEngine" >&2
+			exit 1
+		fi
+		CONFIG_FILE=/etc/rtpengine/rtpengine-maqueta.conf
+		cat > "$CONFIG_FILE" <<-EOF
+		[rtpengine]
+		interfaces-config = interface
+
+		[interface-int]
+		address = $OVERLAY_IP
+
+		[interface-ext]
+		address = $EXT_IP
+		advertised = $EXT_ADVERTISE_IP
+		port-min = ${RTP_EXT_PORT_MIN:-49900}
+		port-max = ${RTP_EXT_PORT_MAX:-49919}
+		EOF
+	fi
 fi
 
 if lsmod | grep xt_RTPENGINE || modprobe xt_RTPENGINE; then
@@ -57,7 +81,12 @@ fi
 LISTEN_CLI="$(awk 'END{print $1}' /etc/hosts):9901"
 
 OPTIONS=""
-OPTIONS="$OPTIONS --interface=$INTERFACE --listen-ng=$LISTEN_NG --listen-cli=$LISTEN_CLI --pidfile=$PIDFILE --port-min=$PORT_MIN --port-max=$PORT_MAX "
+if [ -n "$CONFIG_FILE" ]; then
+	OPTIONS="$OPTIONS --config-file=$CONFIG_FILE"
+else
+	OPTIONS="$OPTIONS --interface=$INTERFACE"
+fi
+OPTIONS="$OPTIONS --listen-ng=$LISTEN_NG --listen-cli=$LISTEN_CLI --pidfile=$PIDFILE --port-min=$PORT_MIN --port-max=$PORT_MAX "
 OPTIONS="$OPTIONS --table=$TABLE  --tos=$TOS --foreground"
 
 if test "$NO_FALLBACK" = "yes" ; then

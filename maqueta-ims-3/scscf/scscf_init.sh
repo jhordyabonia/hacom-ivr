@@ -75,6 +75,10 @@ export IMS_SLASH_DOMAIN=`echo $IMS_DOMAIN | sed 's/\./\\\./g'`
 
 REGISTRATION_EXPIRES_ENV=3600
 
+# Perfil no-3GPP (Digest MD5) solo si el despliegue lo pide explícitamente.
+if [[ "${NON3GPP_DIGEST:-0}" == "1" ]]; then
+	sed -i 's|^##!define WITH_NON3GPP_DIGEST|#!define WITH_NON3GPP_DIGEST|' /etc/kamailio_scscf/scscf.cfg
+fi
 sed -i 's|SCSCF_LISTEN_IP|'$SCSCF_IP'|g' /etc/kamailio_scscf/scscf.cfg
 sed -i 's|REGISTRATION_EXPIRES_ENV|'$REGISTRATION_EXPIRES_ENV'|g' /etc/kamailio_scscf/scscf.cfg
 sed -i 's|IMS_DOMAIN|'$IMS_DOMAIN'|g' /etc/kamailio_scscf/scscf.cfg

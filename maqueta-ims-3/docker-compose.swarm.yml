@@ -71,6 +71,28 @@ services:
         ipv4_address: !reset null
         aliases:
           - rtpengine
+    # Pool RTP de la interfaz "ext" (RTP_EXT_PORT_MIN..MAX de .env.swarm).
+    ports:
+      - {target: 49900, published: 49900, protocol: udp, mode: host}
+      - {target: 49901, published: 49901, protocol: udp, mode: host}
+      - {target: 49902, published: 49902, protocol: udp, mode: host}
+      - {target: 49903, published: 49903, protocol: udp, mode: host}
+      - {target: 49904, published: 49904, protocol: udp, mode: host}
+      - {target: 49905, published: 49905, protocol: udp, mode: host}
+      - {target: 49906, published: 49906, protocol: udp, mode: host}
+      - {target: 49907, published: 49907, protocol: udp, mode: host}
+      - {target: 49908, published: 49908, protocol: udp, mode: host}
+      - {target: 49909, published: 49909, protocol: udp, mode: host}
+      - {target: 49910, published: 49910, protocol: udp, mode: host}
+      - {target: 49911, published: 49911, protocol: udp, mode: host}
+      - {target: 49912, published: 49912, protocol: udp, mode: host}
+      - {target: 49913, published: 49913, protocol: udp, mode: host}
+      - {target: 49914, published: 49914, protocol: udp, mode: host}
+      - {target: 49915, published: 49915, protocol: udp, mode: host}
+      - {target: 49916, published: 49916, protocol: udp, mode: host}
+      - {target: 49917, published: 49917, protocol: udp, mode: host}
+      - {target: 49918, published: 49918, protocol: udp, mode: host}
+      - {target: 49919, published: 49919, protocol: udp, mode: host}
     deploy:
       replicas: 1
       restart_policy:
@@ -220,6 +242,10 @@ services:
           - pcscf
           - pcscf.${IMS_DOMAIN}
           - ${IMS_DOMAIN}
+    # Acceso externo (softphone por VPN): modo host, entra por docker_gwbridge.
+    ports:
+      - {target: 5060, published: 5060, protocol: udp, mode: host}
+      - {target: 5060, published: 5060, protocol: tcp, mode: host}
     deploy:
       replicas: 1
       restart_policy:

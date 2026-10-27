@@ -43,6 +43,13 @@ if [[ "${SWARM_MODE:-0}" == "1" ]]; then
 		sleep 1
 	done
 	[[ -n "$PCSCF_PUB_IP" ]] || { echo "No se pudo determinar la VIP Swarm de P-CSCF" >&2; exit 1; }
+	# Acceso externo (softphone por VPN): el 5060 publicado en modo host entra
+	# por docker_gwbridge (ruta por defecto), no por la overlay.
+	if [[ -n "$EXT_ADVERTISE_IP" ]]; then
+		EXT_DEV="$(ip route show default | awk 'NR == 1 {print $5}')"
+		PCSCF_EXT_IP="$(ip -o -4 addr show dev "$EXT_DEV" scope global | awk 'NR == 1 {split($4, a, "/"); print a[1]}')"
+		[[ -n "$PCSCF_EXT_IP" ]] || { echo "No se pudo determinar la IP externa de P-CSCF" >&2; exit 1; }
+	fi
 fi
 
 mkdir -p /etc/kamailio_pcscf
@@ -53,6 +60,15 @@ cp -r /mnt/pcscf/route /etc/kamailio_pcscf
 cp -r /mnt/pcscf/sems /etc/kamailio_pcscf
 cp /mnt/pcscf/tls.cfg /etc/kamailio_pcscf
 cp /mnt/pcscf/dispatcher.list /etc/kamailio_pcscf
+
+# Socket externo anunciado con la IP del nodo: Via/Record-Route alcanzables
+# desde la VPN. Los UEs de la overlay siguen en el socket PCSCF_LISTEN_IP.
+# mhomed: el socket de salida se elige por la ruta al destino (overlay hacia
+# el core, gwbridge hacia la VPN), no por el socket de entrada.
+if [[ -n "$PCSCF_EXT_IP" ]]; then
+	sed -i "/^listen=tcp:PCSCF_LISTEN_IP:5060$/a listen=udp:$PCSCF_EXT_IP:5060 advertise $EXT_ADVERTISE_IP:5060\nlisten=tcp:$PCSCF_EXT_IP:5060 advertise $EXT_ADVERTISE_IP:5060\nmhomed=1" /etc/kamailio_pcscf/pcscf.cfg
+fi
+sed -i 's|PCSCF_EXT_IP|'$PCSCF_EXT_IP'|g' /etc/kamailio_pcscf/route/rtp.cfg
 
 while ! mysqladmin ping -h ${MYSQL_IP} --silent; do
 	sleep 5;
