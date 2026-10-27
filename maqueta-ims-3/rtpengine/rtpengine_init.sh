@@ -50,6 +50,9 @@ if [ "${SWARM_MODE:-0}" = "1" ]; then
 		cat > "$CONFIG_FILE" <<-EOF
 		[rtpengine]
 		interfaces-config = interface
+		# Ofertas sin respuesta (403/408/604 del lado UE): liberar sus puertos en
+		# 60 s, no en 3600 s (por defecto), para no agotar el pool "ext".
+		offer-timeout = 60
 
 		[interface-int]
 		address = $OVERLAY_IP
@@ -58,7 +61,7 @@ if [ "${SWARM_MODE:-0}" = "1" ]; then
 		address = $EXT_IP
 		advertised = $EXT_ADVERTISE_IP
 		port-min = ${RTP_EXT_PORT_MIN:-49900}
-		port-max = ${RTP_EXT_PORT_MAX:-49919}
+		port-max = ${RTP_EXT_PORT_MAX:-49999}
 		EOF
 	fi
 fi

@@ -298,28 +298,29 @@ def vms_messages(mailbox=VM_MAILBOX):
     """Lista de mensajes (msg*.wav) con metadatos para el reproductor.
 
     Con `format=wav` las grabaciones son PCM16 lineal a 8 kHz mono: la duración
-    aproximada es ≈ bytes/16000. El listado se parsea de `ls -l
-    --time-style=+%Y-%m-%dT%H:%M:%S`."""
+    aproximada es ≈ bytes/16000. El listado se parsea de `stat -c '%s %Y %n'`:
+    la imagen de FreeSWITCH es Alpine y su `ls` (busybox) no admite
+    `--time-style`, con lo que la lista salía vacía aunque hubiera mensajes."""
     rc, out = sh(FREESWITCH,
-                 f"ls -l --time-style=+%Y-%m-%dT%H:%M:%S "
+                 f"stat -c '%s %Y %n' "
                  f"{VMS_DIR}/{mailbox}/INBOX/msg*.wav 2>/dev/null")
     messages = []
     for line in out.splitlines():
-        parts = line.split()
-        if len(parts) < 7:
+        parts = line.split(maxsplit=2)
+        if len(parts) < 3:
             continue
         try:
-            size = int(parts[4])
+            size, mtime = int(parts[0]), int(parts[1])
         except ValueError:
             continue
-        name = parts[-1].rsplit("/", 1)[-1]
+        name = parts[2].rsplit("/", 1)[-1]
         if not name.lower().endswith(".wav"):
             continue
         # PCM16 lineal 8 kHz mono: 16000 bytes/s + cabecera ~44
         messages.append({
             "name": name,
             "size": size,
-            "modified": parts[5],
+            "modified": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(mtime)),
             "duration_s": round(max(size - 44, 0) / 16000),
         })
     messages.sort(key=lambda it: it["modified"], reverse=True)
@@ -803,7 +804,9 @@ def api_vms_media():
     """Streaming del audio de un mensaje (reproductor en la pestaña VMS)."""
     mailbox = request.args.get("mailbox", VM_MAILBOX)
     msg = os.path.basename(request.args.get("msg", ""))
-    if not re.fullmatch(r"msg\d+\.wav", msg.lower()):
+    # FreeSWITCH graba msg_AAAAMMDD_HHMMSS.wav (dialplan 0100003); se aceptan
+    # también los msgNNNN.wav heredados de la maqueta con Asterisk.
+    if not re.fullmatch(r"msg(_\d{8}_\d{6}|\d+)\.wav", msg.lower()):
         return jsonify({"error": "mensaje inválido"}), 400
     data = vms_read_file(mailbox, msg)
     if data is None:
