@@ -168,17 +168,23 @@ with wave.open('/tmp/left_msg_tone.wav','wb') as w:
     w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes(bytes(frames))
 PYEOF
 docker cp /tmp/left_msg_tone.wav "$SOFTPHONE":/tmp/left_msg.wav 2>/dev/null
-docker exec "$FREESWITCH" sh -c "rm -f ${VMS_DIR}/msg*.* 2>/dev/null; true"
-ue_run 1 pjV.log "echo m; sleep 0.7; echo 'sip:0100003@$DOMAIN'; sleep 18; echo h; sleep 2; echo q; sleep 4" --play-file /tmp/left_msg.wav --auto-play
+# QA-13: no se borra el buzón; se cuentan los mensajes previos y al final se
+# elimina solo el que deja esta prueba (los de los usuarios se conservan).
+vms_list() { docker exec "$FREESWITCH" sh -c "ls ${VMS_DIR}/ 2>/dev/null | grep '^msg.*\.wav$' | sort"; }
+V_PREV=$(vms_list); V_BEFORE=$(printf '%s' "$V_PREV" | grep -c . )
+# El buzón saluda (~10 s) y graba tras el tono: la llamada dura 24 s.
+ue_run 1 pjV.log "echo m; sleep 0.7; echo 'sip:0100003@$DOMAIN'; sleep 24; echo h; sleep 2; echo q; sleep 4" --play-file /tmp/left_msg.wav --auto-play
 wait_pj 25 pjV.log "Call 0 state changed to CONFIRMED"; RVC=$?
-V_AFTER=0; i=0
-while [ "$V_AFTER" -eq 0 ] && [ "$i" -lt 50 ]; do
+V_AFTER=$V_BEFORE; i=0
+while [ "$V_AFTER" -le "$V_BEFORE" ] && [ "$i" -lt 50 ]; do
   sleep 3
-  V_AFTER=$(docker exec "$FREESWITCH" sh -c "ls ${VMS_DIR}/msg*.wav 2>/dev/null | wc -l")
+  V_AFTER=$(vms_list | grep -c .)
   i=$((i+1))
 done
+V_NEW=$(vms_list | grep -vxF -f <(printf '%s\n' "$V_PREV" | grep .) 2>/dev/null)
 report "$([ $RVC -eq 0 ] && echo 0 || echo 1)" "VMS: llamada UE1 -> buzón (CONFIRMED)" "UE1 -> 0100003 vía iFC"
-report "$([ "$V_AFTER" -gt 0 ] && echo 0 || echo 1)" "VMS: mensaje grabado en INBOX" "msg*.wav: 0 -> ${V_AFTER:-0} (Buzón 0100003)"
+report "$([ "$V_AFTER" -gt "$V_BEFORE" ] && echo 0 || echo 1)" "VMS: mensaje grabado en INBOX" "msg*.wav: ${V_BEFORE} -> ${V_AFTER:-0} (Buzón 0100003)"
+for f in $V_NEW; do docker exec "$FREESWITCH" rm -f "${VMS_DIR}/$f"; done
 kill_sip; sleep 1
 
 say "PASO 6b/6 — FEAT-02: VMS completo (mod_voicemail + MWI + recuperación)"

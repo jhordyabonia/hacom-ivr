@@ -20,7 +20,7 @@
 
 Al terminar este manual, el teléfono:
 - se registra en el núcleo IMS de la maqueta como un abonado más;
-- llama al IVR (`0100002`) y al buzón de voz (`0100003`);
+- llama al IVR (`0100002`) y al buzón de voz (`0100003`), donde deja mensajes y los escucha;
 - recupera su buzón personal (`0100004`).
 
 El camino de la conexión es este:
@@ -180,7 +180,8 @@ Haz las pruebas en este orden. Marca los números **exactos**: tienen 7 dígitos
 | # | Marca | Qué debe pasar | Cómo se comprueba |
 |---|---|---|---|
 | 1 | `0100002` | Contesta el **IVR**: suena la bienvenida (unos 9 s) y después el menú DTMF | Lo oyes. Pulsa una opción del menú: debe responder |
-| 2 | `0100003` | Contesta el **buzón de voz**. Habla de 5 a 10 s y cuelga | En la web, pestaña **VMS**, buzón `0100003`: tu mensaje aparece y se reproduce con tu voz |
+| 2 | `0100003` (dejar mensaje) | Saludo «Bienvenido al buzón de voz…». **No marques nada**: suena un **tono**; habla después del tono y cuelga (la grabación también se corta tras 7 s de silencio) | En la web, pestaña **VMS**, buzón `0100003`: tu mensaje aparece y se reproduce con tu voz |
+| 2b | `0100003` y marca **1** durante el saludo (escuchar) | «Reproduciendo los mensajes…»: se oyen los mensajes del buzón, **del más reciente al más antiguo**, separados por «Siguiente mensaje», y al final «No hay más mensajes» | Oyes el mensaje que dejaste en la prueba 2 |
 | 3 | `00101xxxxx` (un abonado **no registrado**) | La llamada se desvía al buzón personal de ese abonado. Deja un mensaje | El dueño del buzón lo recupera en la prueba 4. Si está suscrito, recibe aviso de mensaje en espera (MWI) |
 | 4 | `0100004` | Recuperación del buzón **propio**: pide un PIN de 4 dígitos y luego 1 = escuchar; tras escuchar, 7 = borrar, 2 = guardar, # = siguiente | Solo funciona si tu número tiene PIN dado de alta (§9). Tras **5 PIN erróneos en 15 min** el buzón se bloquea 15 minutos |
 
@@ -293,5 +294,6 @@ Para publicarla:
 - [ ] `enable_nat_helper=0` (aprovisionamiento remoto)
 - [ ] Cuenta **Registrada**
 - [ ] `0100002`: se oye la bienvenida y el menú responde
-- [ ] `0100003`: el mensaje aparece en la pestaña VMS y se reproduce
+- [ ] `0100003`: tras el tono se graba; el mensaje aparece en la pestaña VMS y se reproduce
+- [ ] `0100003` + `1`: se escuchan los mensajes por teléfono
 - [ ] Batería sin restricciones para OpenVPN y Linphone

@@ -15,7 +15,7 @@
 |---|---|
 | Regresión funcional `test_maqueta.sh` | 6 ejecuciones. **22/22 PASS** en la línea base, en las 3 posteriores a cada corrección y en la final. Una ejecución intermedia dio **7/22** por QA-02, corregido a continuación. [CODE] |
 | Casos de QA ejecutados en esta ronda | 24, todos aprobados después de las correcciones |
-| Defectos encontrados | 23 registros (22 defectos y 1 error de uso). **12 corregidos** y verificados en DEV, **2 con solución temporal** y **8 abiertos**, ninguno de severidad alta. |
+| Defectos encontrados | 25 registros (24 defectos y 1 error de uso). **15 corregidos** y verificados en DEV, **2 con solución temporal** y **7 abiertos**, ninguno de severidad alta. |
 | Pruebas de estrés | 1 030/1 030 llamadas correctas hasta 45 concurrentes; 6/50 registros con 504 en la ráfaga. Ver `../07_pruebas_estres/INFORME_PRUEBAS_ESTRES.md`. |
 | Dictamen | **Apto para demostración** del acceso externo por VPN (registro, IVR con la bienvenida nueva y depósito en buzón con audio). QA-10, QA-11 y QA-12 ya están corregidos (§8). Para producción siguen pendientes la autenticación de la API de la UI, los secretos fuera del repo (QA-18) y el almacenamiento de objetos del diseño de `06_arquitectura`. |
 
@@ -78,7 +78,7 @@ Severidad: **Alta** = pérdida de datos o seguridad; **Media** = funcionalidad d
 | QA-10 | **Alta** | Dialplan VMS 0100003 | Depósitos concurrentes en el mismo segundo se sobrescriben: 160 depósitos → 36 archivos, 12 vacíos | Nombre con resolución de 1 s [CODE] | **Corregido** (§8): nombre `msg_AAAAMMDD_HHMMSS_<uuid>.wav` |
 | QA-11 | **Alta** | FEAT-02 almacenamiento | Los mensajes de `mod_voicemail` (`/var/lib/freeswitch/storage/voicemail`) y su índice (`/var/lib/freeswitch/db`) no tienen volumen: se pierden al recrear la tarea | El compose de Swarm solo monta `storage/vms` [CODE] | **Corregido** (§8): volúmenes `mims3_fs_voicemail` y `mims3_fs_db`. En producción, almacenamiento de objetos (06_arquitectura) |
 | QA-12 | **Alta** | Seguridad FEAT-02 | `/api/pin` lista todos los PIN sin autenticación; el PIN se guarda en claro y `vm_pin.lua` lo escribe en el log | Diseño de laboratorio [CODE] (verificado: `/api/pin` responde con la clave `pins` sin autenticar) | **Corregido** (§8): hash PBKDF2, API sin PIN, validación por POST con bloqueo y log sin PIN. Pendiente: autenticar la API de la UI |
-| QA-13 | Media | Pruebas | `test_maqueta.sh` borra **todos** los mensajes del buzón 0100003 (`rm -f …/msg*`) | Línea 171 del test [CODE] | **Abierto**: usar un buzón de prueba propio o borrar solo los mensajes que crea |
+| QA-13 | Media | Pruebas | `test_maqueta.sh` borra **todos** los mensajes del buzón 0100003 (`rm -f …/msg*`) | Línea 171 del test [CODE] | **Corregido** (§10): la prueba cuenta los mensajes previos y borra solo el que deja |
 | QA-14 | Baja | UI | El texto de la pestaña VMS dice «Asterisk» y `.../voicemail/default/0100003` | Texto heredado de la maqueta anterior [CODE] | **Abierto** |
 | QA-15 | Baja | Documentación | `HLD_Maqueta_IMS_uVAS.md` dice que el P-CSCF no está publicado y que Digest está desactivado | Documento anterior al cambio [DOC] | **Abierto**: actualizar con los diagramas nuevos |
 | QA-16 | Media | HSS | 12 % de 504 en una ráfaga de 5 registros/s | PyHSS + Redis en el nodo de 2 vCPU saturado [INFERENCE] | **Abierto**: ver el informe de estrés E-2 |
@@ -89,6 +89,8 @@ Severidad: **Alta** = pérdida de datos o seguridad; **Media** = funcionalidad d
 | QA-21 | **Alta** | P-CSCF | Tras un cambio de red (Wi-Fi ↔ VPN, corte breve, ahorro de batería) Linphone abre una conexión TCP nueva y envía el INVITE a la vez que el REGISTER que la registra: el P-CSCF responde `403 You must register first`. Era la causa de los 403 intermitentes del móvil | `pcscf_is_registered` identifica al UE por IP y puerto de origen; el puerto nuevo aún no está registrado [CODE] | **Corregido** (§9): espera asíncrona de hasta 3 s para clientes externos |
 | QA-22 | **Alta** | AS Frontera | INVITE del móvil → `407` y luego `403` de FreeSWITCH | Linphone incluye su cabecera `Authorization` del registro; el core la reenvía al AS y FreeSWITCH intenta validarla aunque `auth-calls=false` [CODE] | **Corregido** (§9): `asfront` retira `Authorization` y `Proxy-Authorization` |
 | QA-23 | Media | Infraestructura Swarm | Tras reiniciar un CSCF con tráfico en curso, los REGISTER dan `504` durante minutos | El tráfico UDP entre CSCF pasa por la VIP con SNAT (172.32.0.32); una entrada de conntrack del contenedor anterior obliga a remapear el puerto de origen y la respuesta vuelve a ese contenedor inexistente. Cada respuesta refresca la entrada [CODE] | **Abierto**: tras reiniciar un CSCF, dejar unos 4 min sin tráfico SIP (verificado) o vaciar conntrack en el nodo; a futuro, tráfico entre CSCF por IP de tarea en lugar de VIP |
+| QA-24 | **Alta** | P-CSCF / RTPEngine | Linphone con cifrado de medios obligatorio ofrece SRTP (`RTP/SAVP` + `a=crypto`); la respuesta le llegaba como `RTP/AVP` y colgaba a los ~120 ms («0/null», `Incompatible SDP answer`) | La respuesta del AS pasaba por RTPEngine con `RTP AVP` forzado también hacia el UE externo [CODE] | **Corregido** (§10): para UE externos RTPEngine responde con el perfil ofrecido (SRTP/SDES) y mantiene RTP hacia el AS |
+| QA-25 | **Alta** | P-CSCF | El INVITE suspendido por QA-21 se reanudaba sin anclar el medio: el AS recibía el SDP del UE y el teléfono, una IP interna (sin audio) | La reanudación (`async_ms_route`, mecanismo `t_continue`) corre como FAILURE_ROUTE, pierde los flags del mensaje y ahí `NATMANAGE` borra la sesión de RTPEngine en lugar de crearla [CODE] | **Corregido** (§10): suspensión antes de `loose_route()`, flags restaurados y oferta explícita con `rtpengine_offer()` |
 
 ## 5. Evidencias
 
@@ -152,7 +154,6 @@ Linphone bloquea las capturas de pantalla (`FLAG_SECURE`), así que el estado se
 
 1. **Producción del almacenamiento (sigue a QA-11):** el volumen local de DEV ata los buzones al nodo IVR. El objetivo es almacenamiento de objetos con metadatos en BD (`06_arquitectura/almacenamiento_y_recuperacion_buzones.md`).
 2. **API de la UI y QA-18:** autenticar la API (hoy `/api/pin` ya no expone PIN, pero la UI sigue abierta en la red de gestión), llevar el contador de bloqueo de PIN a Redis y sacar las Ki del repo.
-3. **QA-13:** que la regresión no borre el buzón 0100003 completo.
 4. **QA-05:** soportar en el P-CSCF clientes que reescriben su Contact con la IP del NAT (configuración por defecto de la mayoría de softphones).
 5. **QA-16 y QA-17:** capacidad del HSS ante ráfagas y reenvío de RTPEngine en el kernel. Repetir el estrés con el generador dentro de DEV para hallar la saturación real.
 6. **QA-14 y QA-15:** higiene de la UI y de la documentación.
@@ -206,3 +207,22 @@ Linphone bloquea las capturas de pantalla (`FLAG_SECURE`), así que el estado se
 **Despliegue y reversión:**
 - copias de los archivos sustituidos en `.231`: `~/antes-pcscf-qa05-<fecha>.tar` y `~/kamailio_asfront.cfg.antes-<fecha>`;
 - para revertir: restaurar esos archivos, ejecutar `docker service update --force mims3_pcscf mims3_asfront` y esperar unos 4 min sin tráfico antes de probar (QA-23).
+
+## 10. Cifrado del móvil, reanudación del INVITE y buzón con saludo (2026-10-28/29)
+
+**Pedido del usuario:** llamar a un número, oír un saludo que indique dejar el mensaje después del tono y grabarlo; llamar al buzón y escuchar lo dejado; y reproducirlo también desde la web.
+
+| ID | Cambio | Verificación en DEV | Resultado |
+|---|---|---|---|
+| QA-24 | `pcscf/route/rtp.cfg`: si la petición original llegó por la interfaz externa (`$T_req($Ri)`), la respuesta del AS pasa por RTPEngine sin `RTP AVP`; RTPEngine responde al UE con el perfil que ofreció (SRTP/SDES) y mantiene RTP hacia el AS. [CODE] | Oferta SRTP y oferta RTP desde el PC; llamadas reales desde Linphone (cifrado obligatorio) | **PASS**: oferta SRTP → respuesta `RTP/SAVP` con `a=crypto`; oferta RTP → `RTP/AVP` con audio en ambos sentidos. Linphone llega a *StreamsRunning* sin colgar (antes, «0/null» a los 120 ms) |
+| QA-25 | `pcscf/route/mo.cfg`: la suspensión va al inicio de `route[MO]`, antes de `loose_route()`; `route[MO_ESPERA_REG]` restaura `FLT_DIALOG`, `FLT_NAT` y `FLT_MOBILE_ORIG` y hace la oferta con `rtpengine_offer()` (en FAILURE_ROUTE `rtpengine_manage()` borra la sesión). [CODE] | `reconn_test.py` con `Route` como Linphone | **PASS**: `INVITE externo reanudado, oferta RTPEngine […]` y sin `Unknown call-id` en la respuesta |
+| Buzón | `freeswitch/scripts/vms_buzon.lua` (nuevo) y dialplan `0100003`: saludo; **1** = escuchar los mensajes del más reciente al más antiguo; sin dígito, tono de 1 kHz y grabación (hasta 300 s, fin al colgar o tras 7 s de silencio) en `INBOX/msg_<fecha>_<uuid>.wav`. Locuciones en `freeswitch/audio/vms_*.wav` (español, 8 kHz mono, generadas con `espeak-ng`). [CODE] | Depósito y escucha desde el PC (con DTMF RFC 4733 y captura del audio recibido) y lista de la UI | **PASS**: el saludo se oye (~12 s), luego el tono y la grabación; el mensaje aparece en `/api/vms` y se reproduce en la web. Con «1», FreeSWITCH recibe el DTMF y reproduce los 4 mensajes del más reciente al más antiguo |
+| QA-13 | `scripts/test_maqueta.sh`: ya no vacía el buzón; cuenta los mensajes previos, exige uno más y borra solo el que dejó la prueba. [CODE] | Regresión | **PASS**: `msg*.wav: 4 -> 5` y el buzón vuelve a 4 al terminar |
+
+**Regresión:** `SWARM_MODE=1 bash scripts/test_maqueta.sh` → **22/22 PASS** (`test_maqueta_buzon.log`). [CODE]
+
+**Validación previa de la configuración del P-CSCF:** una versión de depuración con un error de sintaxis dejó el P-CSCF caído unos 5 minutos (23:38–23:43). Desde entonces cada cambio se valida con `kamailio -c` dentro del contenedor antes de reiniciar el servicio.
+
+**Limpieza:** se borraron los 4 mensajes de prueba del buzón `0100003`, de modo que el usuario empieza con el buzón vacío, y se retiró el servidor de configuración del teléfono (`adb reverse`). En Linphone queda activado `debug=1`, que solo afecta a sus logs.
+
+**Limitación:** el buzón `0100003` es compartido; todos los que llaman oyen todos los mensajes. Llamar al propio número no llega a FreeSWITCH: con el teléfono registrado, el core lo hace sonar en el propio teléfono, porque la iFC solo envía al AS `0100002`–`0100004`. Un buzón propio por abonado existe (FEAT-02, `mod_voicemail`), pero se recupera por `0100004` con PIN y la web no lo muestra.
