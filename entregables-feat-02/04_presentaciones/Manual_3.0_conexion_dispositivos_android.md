@@ -228,7 +228,9 @@ Haz estos pasos una vez por teléfono. **No reutilices** el abonado ni la contra
 | Registro: `401` en bucle / *Authentication failed* | ID de autenticación incorrecto (IMSI en lugar de MSISDN@dominio) o contraseña errónea | Pon `MSISDN@dominio` como ID de autenticación; confirma la contraseña |
 | Registro: `403` | El abonado no existe en el HSS o el perfil Digest está desactivado | El administrador revisa el alta (§9) |
 | Registro o llamada: `408 Request Timeout` | Transporte **UDP** (mensajes grandes fragmentados en la VPN, QA-04) | Cambia el transporte a **TCP** |
-| Llamada: `403 You must register first with a S-CSCF` | Linphone reescribió el Contact con la IP NAT (QA-05) | `enable_nat_helper=0`, por aprovisionamiento remoto (§6.A) |
+| Llamada: `403 You must register first with a S-CSCF` | Linphone reescribió el Contact con la IP NAT (QA-05) o la llamada salió justo tras un cambio de red (QA-21) | `enable_nat_helper=0`, por aprovisionamiento remoto (§6.A). Desde el 2026-10-28 el P-CSCF espera hasta 3 s a que termine el registro tras un cambio de red; si aún aparece, espera a ver el punto verde y vuelve a llamar |
+| Llamada: `407` y luego `403` | El servidor validaba las credenciales que Linphone añade al INVITE (QA-22) | Corregido en el servidor el 2026-10-28; no requiere cambios en el teléfono |
+| La llamada se corta sola en menos de 1 s («0/null») | La VPN del teléfono se cortó o cambió de red durante la llamada | Comprueba que OpenVPN siga en **Conectado** y que ningún otro equipo use el mismo perfil (§2) |
 | Llamada: `604 Does not exist anywhere` | Número mal marcado (por ejemplo `010002`) | Marca `0100002`, con 7 dígitos |
 | La llamada conecta pero no hay audio, o el mensaje se graba vacío | Ruta RTP bloqueada o puertos de RTPEngine agotados (QA-07) | Verifica la VPN; el administrador revisa RTPEngine (49900–49999) |
 | No recibe llamadas en segundo plano | Ahorro de batería de Android | Ver §4.4 |

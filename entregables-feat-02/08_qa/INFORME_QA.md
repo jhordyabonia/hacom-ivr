@@ -15,7 +15,7 @@
 |---|---|
 | Regresión funcional `test_maqueta.sh` | 6 ejecuciones. **22/22 PASS** en la línea base, en las 3 posteriores a cada corrección y en la final. Una ejecución intermedia dio **7/22** por QA-02, corregido a continuación. [CODE] |
 | Casos de QA ejecutados en esta ronda | 24, todos aprobados después de las correcciones |
-| Defectos encontrados | 20 registros (19 defectos y 1 error de uso). **10 corregidos** y verificados en DEV, **2 con solución temporal** y **7 abiertos**, ninguno de severidad alta. |
+| Defectos encontrados | 23 registros (22 defectos y 1 error de uso). **12 corregidos** y verificados en DEV, **2 con solución temporal** y **8 abiertos**, ninguno de severidad alta. |
 | Pruebas de estrés | 1 030/1 030 llamadas correctas hasta 45 concurrentes; 6/50 registros con 504 en la ráfaga. Ver `../07_pruebas_estres/INFORME_PRUEBAS_ESTRES.md`. |
 | Dictamen | **Apto para demostración** del acceso externo por VPN (registro, IVR con la bienvenida nueva y depósito en buzón con audio). QA-10, QA-11 y QA-12 ya están corregidos (§8). Para producción siguen pendientes la autenticación de la API de la UI, los secretos fuera del repo (QA-18) y el almacenamiento de objetos del diseño de `06_arquitectura`. |
 
@@ -86,6 +86,9 @@ Severidad: **Alta** = pérdida de datos o seguridad; **Media** = funcionalidad d
 | QA-18 | Media | Seguridad | La Ki de UE3 (que también es su contraseña Digest) está en `.env` dentro del repo | Patrón ya existente para UE1/UE2 [CODE] | **Abierto**: secretos fuera del repo (Docker secrets o un gestor de secretos) |
 | QA-19 | Baja | Infraestructura | El PC y el móvil comparten el perfil VPN; solo uno puede estar conectado a la vez | Un solo certificado/usuario [CONFIG] | **Abierto**: segundo perfil VPN para pruebas |
 | QA-20 | **Alta** | Configuración | En `.env` la línea `UE2_KI` quedó pegada al comentario de UE3: un despliegue completo daría a UE2 una Ki incorrecta | Falta de salto de línea al añadir UE3 en `881dbd0` [CODE] | **Corregido** (§8); sin efecto en DEV, que se actualizó sin releer `.env` |
+| QA-21 | **Alta** | P-CSCF | Tras un cambio de red (Wi-Fi ↔ VPN, corte breve, ahorro de batería) Linphone abre una conexión TCP nueva y envía el INVITE a la vez que el REGISTER que la registra: el P-CSCF responde `403 You must register first`. Era la causa de los 403 intermitentes del móvil | `pcscf_is_registered` identifica al UE por IP y puerto de origen; el puerto nuevo aún no está registrado [CODE] | **Corregido** (§9): espera asíncrona de hasta 3 s para clientes externos |
+| QA-22 | **Alta** | AS Frontera | INVITE del móvil → `407` y luego `403` de FreeSWITCH | Linphone incluye su cabecera `Authorization` del registro; el core la reenvía al AS y FreeSWITCH intenta validarla aunque `auth-calls=false` [CODE] | **Corregido** (§9): `asfront` retira `Authorization` y `Proxy-Authorization` |
+| QA-23 | Media | Infraestructura Swarm | Tras reiniciar un CSCF con tráfico en curso, los REGISTER dan `504` durante minutos | El tráfico UDP entre CSCF pasa por la VIP con SNAT (172.32.0.32); una entrada de conntrack del contenedor anterior obliga a remapear el puerto de origen y la respuesta vuelve a ese contenedor inexistente. Cada respuesta refresca la entrada [CODE] | **Abierto**: tras reiniciar un CSCF, dejar unos 4 min sin tráfico SIP (verificado) o vaciar conntrack en el nodo; a futuro, tráfico entre CSCF por IP de tarea en lugar de VIP |
 
 ## 5. Evidencias
 
@@ -178,3 +181,28 @@ Linphone bloquea las capturas de pantalla (`FLAG_SECURE`), así que el estado se
 - imagen de UI `mims3_ui:pin-hash-20261027b` (anterior: `mims3_ui:vms-media-fix-20261027`);
 - copia de los archivos sustituidos en cada nodo: `~/antes-qa101112-<fecha>.tar`;
 - para revertir FreeSWITCH: `docker service update --mount-rm /var/lib/freeswitch/storage/voicemail --mount-rm /var/lib/freeswitch/db mims3_freeswitch` y restaurar el tar.
+
+
+## 9. Corrección de los 403 y «0/null» del móvil (2026-10-28)
+
+**Síntoma reportado:** las llamadas desde Linphone a `0100002` y `0100003` terminaban con «0/null» y, a veces, con `403`.
+
+**Diagnóstico** (logs de depuración de Linphone por `adb`, logs del P-CSCF y de FreeSWITCH, y capturas `tcpdump` en el P-CSCF, el I-CSCF y el S-CSCF): [CODE]
+- **QA-21:** cada vez que el móvil cambia de red abre una conexión TCP nueva y manda el INVITE junto al REGISTER. El P-CSCF todavía no conoce ese puerto y responde 403. Linphone lo registra 0,5 s después, pero la llamada ya falló.
+- **QA-22:** cuando el INVITE lleva `Authorization`, FreeSWITCH responde 407 y, al reintento con credenciales que no conoce, 403.
+- **«0/null»:** son llamadas que se cortan en menos de 1 s. En los logs del servidor aparecen cuando la VPN del teléfono se corta o cambia (el PC y el teléfono comparten perfil, QA-19) y en la misma situación que QA-21. Tras las correcciones no se reprodujo desde el PC; queda pendiente confirmarlo en el teléfono.
+
+| ID | Cambio | Verificación en DEV | Resultado |
+|---|---|---|---|
+| QA-21 | `pcscf/route/mo.cfg`: si un INVITE llega por la interfaz externa y el UE no está registrado, se suspende con `async_ms_route` y `route[MO_ESPERA_REG]` lo reevalúa cada 200 ms, como máximo 3 s, sin bloquear la conexión TCP. Al quedar registrado se retoma el camino normal (`MO`, `DEC_RTP`, `NATMANAGE`, `RELAY`); si no, 403 como antes. `kamailio_pcscf.cfg`: módulos `async` (con `ms_timer`) y `cfgutils`, `async_workers=2`. `pcscf_init.sh`: sustituye `PCSCF_EXT_IP` también en `mo.cfg`. [CODE] | `reconn_test.py`: registro, conexión TCP nueva, INVITE y REGISTER a la vez, a `0100003` y a `0100002` | **PASS**: REGISTER 200 en 0,6–0,8 s e INVITE **200 OK** en 0,83 s (antes, 403). Log: `INVITE externo retomado tras 3 esperas de 200 ms` |
+| QA-22 | `asfront/kamailio_asfront.cfg`: `remove_hf("Authorization")` y `remove_hf("Proxy-Authorization")` en los INVITE/SUBSCRIBE iniciales y en las peticiones en diálogo. [CODE] | Llamada como UE3 con y sin `Authorization` en el INVITE | **PASS**: antes 407; ahora 200 OK con audio en ambos sentidos |
+
+**Regresión:** `SWARM_MODE=1 bash scripts/test_maqueta.sh` → **22/22 PASS** con ambos cambios (`test_maqueta_qa21-22.log`), incluidos IMS-AKA/IPsec, IVR, VMS, MWI y PIN. [CODE]
+
+**Regla IMS intacta:** un UE sin registro sigue recibiendo 403. Solo se espera a que termine un registro en curso, y solo para la interfaz externa. Los UE internos (IMS-AKA/IPsec) no pasan por esa rama.
+
+**Incidencia durante el despliegue (QA-23):** al reiniciar varias veces el P-CSCF y el I-CSCF con tráfico de prueba en curso, los REGISTER dieron 504 durante varios minutos. Las capturas mostraron que la respuesta del S-CSCF iba a una entrada de conntrack del contenedor anterior. Se resolvió dejando 4 minutos sin tráfico SIP. También se reinició `pyhss_diameter`, aunque no era la causa.
+
+**Despliegue y reversión:**
+- copias de los archivos sustituidos en `.231`: `~/antes-pcscf-qa05-<fecha>.tar` y `~/kamailio_asfront.cfg.antes-<fecha>`;
+- para revertir: restaurar esos archivos, ejecutar `docker service update --force mims3_pcscf mims3_asfront` y esperar unos 4 min sin tráfico antes de probar (QA-23).

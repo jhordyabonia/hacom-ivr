@@ -69,6 +69,7 @@ if [[ -n "$PCSCF_EXT_IP" ]]; then
 	sed -i "/^listen=tcp:PCSCF_LISTEN_IP:5060$/a listen=udp:$PCSCF_EXT_IP:5060 advertise $EXT_ADVERTISE_IP:5060\nlisten=tcp:$PCSCF_EXT_IP:5060 advertise $EXT_ADVERTISE_IP:5060\nmhomed=1" /etc/kamailio_pcscf/pcscf.cfg
 fi
 sed -i 's|PCSCF_EXT_IP|'$PCSCF_EXT_IP'|g' /etc/kamailio_pcscf/route/rtp.cfg
+sed -i 's|PCSCF_EXT_IP|'$PCSCF_EXT_IP'|g' /etc/kamailio_pcscf/route/mo.cfg
 
 while ! mysqladmin ping -h ${MYSQL_IP} --silent; do
 	sleep 5;
