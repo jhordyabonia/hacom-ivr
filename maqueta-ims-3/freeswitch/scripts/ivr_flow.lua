@@ -1,6 +1,8 @@
 -- ivr_flow.lua — Motor de IVR con menú DTMF (FEAT-01)
 -- Lee flujos JSON por país desde /mnt/freeswitch/flows/<pais>.json y ejecuta:
 --   saludo -> menú (playAndGetDigits) -> acción por dígito -> repetir/colgar.
+-- Si el flujo trae "record" (0100002), el menú sin dígito no cuelga: avisa, da
+-- el tono y graba un mensaje de voz en record.inbox (buzón 0100003).
 -- Persiste la elección en /mnt/freeswitch/logs/ivr_cdr.jsonl (CDR de la opción)
 -- y registra "IVR_ACTION" (check de los tests E2E).
 -- Uso en dialplan:  answer; set ivr_flow=<pais>; lua ivr_flow.lua ${ivr_flow}; hangup
@@ -145,11 +147,31 @@ local destination = session:getVariable("destination_number") or "-"
 local tries_left = tonumber(flow.max_tries) or 3
 local term = "#"
 
+-- Mensaje de voz tras el menú: tono de 1 kHz (0,6 s) y grabación hasta 300 s;
+-- termina al colgar o tras 7 s seguidos de silencio. Mismo formato que el
+-- buzón (INBOX/msg_<fecha>_<uuid>.wav, QA-10): lo lista la pestaña VMS.
+local function record_message(rec)
+  local inbox = rec.inbox
+  os.execute("mkdir -p " .. inbox)
+  local file = string.format("%s/msg_%s_%s.wav", inbox, os.date("%Y%m%d_%H%M%S"),
+    session:getVariable("uuid"))
+  if rec.prompt then session:streamFile(rec.prompt) end
+  if not session:ready() then return end
+  session:execute("playback", "tone_stream://%(600,0,1000)")
+  freeswitch.consoleLog("notice", "VMS_BUZON graba caller=" .. caller .. " file=" .. file .. "\n")
+  session:recordFile(file, 300, 200, 7)
+  if rec.done and session:ready() then session:streamFile(rec.done) end
+end
+
 while tries_left > 0 do
-  local pdig_cmd = "1 1 " .. tries_left .. " 3000 " .. term .. " " .. flow.menu .. " " .. flow.invalid .. " ivr_digits"
+  -- Con "record" el primer silencio pasa a grabar: un solo intento por vuelta.
+  local tries = flow.record and 1 or tries_left
+  local pdig_cmd = "1 1 " .. tries .. " 3000 " .. term .. " " .. flow.menu .. " " .. flow.invalid .. " ivr_digits"
   session:execute("play_and_get_digits", pdig_cmd)
   local digit = session:getVariable("ivr_digits") or ""
   tries_left = tries_left - 1
+  -- Colgó durante el menú: sin CDR de opción (no hubo elección ni grabación).
+  if not session:ready() then break end
 
   local chosen = nil
   if flow.options then
@@ -159,6 +181,7 @@ while tries_left > 0 do
   end
 
   local action = (chosen and chosen.action) or "invalid"
+  if digit == "" and flow.record then action = "record" end
   local file = (chosen and chosen.file) or nil
   local line = '{"ts":"' .. now() .. '","country":"' .. country .. '","caller":"' .. caller ..
                '","dest":"' .. destination .. '","digit":"' .. digit .. '","action":"' .. action .. '"}'
@@ -167,6 +190,11 @@ while tries_left > 0 do
                         " digit=" .. digit .. " action=" .. action .. "\n")
 
   if action == "bye" then
+    session:hangup()
+    return
+  end
+  if action == "record" then
+    record_message(flow.record)
     session:hangup()
     return
   end

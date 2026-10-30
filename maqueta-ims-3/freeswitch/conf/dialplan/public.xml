@@ -4,7 +4,8 @@
     - 0100002 -> IVR interactivo: motor Lua (menú DTMF por país, flujos JSON).
                  Flujos: freeswitch/flows/<pais>.json ; motor: freeswitch/scripts/ivr_flow.lua
                  Persiste elección en /mnt/freeswitch/logs/ivr_cdr.jsonl (CDR de opción).
-    - 0100003 -> VMS: saludo; 1 = escuchar mensajes; si no, tono y grabación en INBOX/msg*.wav
+                 Sin dígito tras el menú: tono y mensaje de voz en el buzón 0100003.
+    - 0100003 -> VMS: menú 1 = escuchar, 2 = borrar todos, 3 = contraseña (pendiente)
     - 00101xxxxx -> FEAT-02 VMS: deposit del buzón por MSISDN (mod_voicemail) + MWI (SUBSCRIBE/NOTIFY).
     - 0100004 -> FEAT-02 VMS: recuperación por PIN (vm_pin.lua) + menú de escucha/borrado.
   RTP path: UE <-> RTPEngine <-> FreeSWITCH (el ancla de RTP lo hace RTPEngine)
@@ -23,10 +24,11 @@
       </condition>
     </extension>
 
-    <!-- VMS: buzón 0100003. Saludo; "1" escucha los mensajes (del más reciente
-         al más antiguo); sin dígito, tono y grabación en INBOX/msg_<fecha>_<uuid>.wav
-         (${uuid}: dos depósitos en el mismo segundo no se sobrescriben, QA-10).
-         Los mensajes se listan y reproducen en la pestaña VMS de la UI. -->
+    <!-- VMS: buzón 0100003, solo escucha. Menú: 1 escucha todos los mensajes
+         (del más reciente al más antiguo), 2 los borra todos, 3 contraseña (solo
+         la entrada del menú). Los mensajes los deja el IVR 0100002 en
+         INBOX/msg_<fecha>_<uuid>.wav (QA-10) y se listan y reproducen en la
+         pestaña VMS de la UI. -->
     <extension name="vms_0100003">
       <condition field="destination_number" expression="^0100003$">
         <action application="lua" data="vms_buzon.lua /var/lib/freeswitch/storage/vms/0100003/INBOX"/>

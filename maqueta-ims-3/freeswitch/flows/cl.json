@@ -5,6 +5,11 @@
   "menu": "/mnt/freeswitch/audio/menu.wav",
   "invalid": "/mnt/freeswitch/audio/invalido.wav",
   "max_tries": 3,
+  "record": {
+    "inbox":  "/var/lib/freeswitch/storage/vms/0100003/INBOX",
+    "prompt": "/mnt/freeswitch/audio/vms_deje_mensaje.wav",
+    "done":   "/mnt/freeswitch/audio/vms_grabado.wav"
+  },
   "options": [
     { "digit": "1", "desc": "saldo",  "action": "playback", "file": "/mnt/freeswitch/audio/saldo.wav",  "then": "repeat" },
     { "digit": "2", "desc": "ayuda",  "action": "playback", "file": "/mnt/freeswitch/audio/ayuda.wav",  "then": "repeat" },

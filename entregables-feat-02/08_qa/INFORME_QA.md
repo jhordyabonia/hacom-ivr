@@ -226,3 +226,28 @@ Linphone bloquea las capturas de pantalla (`FLAG_SECURE`), así que el estado se
 **Limpieza:** se borraron los 4 mensajes de prueba del buzón `0100003`, de modo que el usuario empieza con el buzón vacío, y se retiró el servidor de configuración del teléfono (`adb reverse`). En Linphone queda activado `debug=1`, que solo afecta a sus logs.
 
 **Limitación:** el buzón `0100003` es compartido; todos los que llaman oyen todos los mensajes. Llamar al propio número no llega a FreeSWITCH: con el teléfono registrado, el core lo hace sonar en el propio teléfono, porque la iFC solo envía al AS `0100002`–`0100004`. Un buzón propio por abonado existe (FEAT-02, `mod_voicemail`), pero se recupera por `0100004` con PIN y la web no lo muestra.
+
+## 11. Mensaje de voz desde el IVR y buzón 0100003 solo de escucha (2026-10-29)
+
+**Pedido del usuario:** que `0100002` reproduzca el mismo mensaje de siempre y después permita grabar un mensaje de voz; que `0100003` sirva solo para escuchar, con el menú 1 = oír los mensajes, 2 = borrarlos todos y 3 = contraseña del buzón (solo la entrada del menú).
+
+| Cambio | Detalle |
+|---|---|
+| `0100002` (`ivr_flow.lua`, `flows/cl.json`) | El flujo CL tiene un bloque `record`. Tras la bienvenida y el menú, si no se marca nada en 3 s: «Para dejar un mensaje de voz, hable después del tono», tono de 1 kHz y grabación en `vms/0100003/INBOX/msg_<fecha>_<uuid>.wav` (hasta 300 s; termina al colgar o tras 7 s de silencio). Las opciones 1/2/9 del menú no cambian. Si el que llama cuelga durante el menú, ya no se escribe CDR de opción. [CODE] |
+| `0100003` (`vms_buzon.lua`) | Ya no graba. Menú: **1** reproduce todos los mensajes (del más reciente al más antiguo), **2** los borra todos, **3** responde «La contraseña del buzón todavía no está disponible». Tras cada opción vuelve al menú; tres vueltas sin dígito válido: «Gracias por llamar. Adiós». [CODE] |
+| Audios (`freeswitch/audio/`) | Nuevos: `vms_menu`, `vms_borrados`, `vms_clave_no_disponible`, `vms_adios`, `vms_deje_mensaje`. Se regrabaron `vms_sin_mensajes` y `vms_fin_mensajes` sin «Adiós», porque ahora vuelven al menú. Se retiró `vms_bienvenida`. Voz espeak-ng es-419, 8 kHz mono. [CODE] |
+| Regresión (`test_maqueta.sh`) | El mensaje del paso 6 se deja por `0100002` (llamada de 32 s). Se exige, además de un archivo nuevo, que pese más de 16 KB (más de 1 s de audio); se espera a que FreeSWITCH cierre el archivo, que mientras graba solo tiene la cabecera de 44 bytes. Los mensajes que dejen las llamadas de los pasos 5 y 5b se borran antes del paso 6. [CODE] |
+
+**Verificación en DEV** (cliente SIP del PC como UE3 y pjsua de la maqueta como UE1): [CODE]
+
+| Prueba | Resultado |
+|---|---|
+| `0100002` sin marcar | **PASS**: bienvenida → menú → aviso → tono → grabación. Archivos de 10,7 s (PC) y 12,5 s (pjsua) con nivel de audio constante |
+| `0100003` + 1 | **PASS**: reprodujo los 8 mensajes del buzón, del más reciente al más antiguo, y volvió al menú |
+| `0100003` + 3 | **PASS**: «La contraseña del buzón todavía no está disponible» y vuelta al menú |
+| `0100003` + 2 | **PASS**: borró los 8 mensajes (`quedan=0`) y dijo «Todos sus mensajes han sido borrados». Los 6 mensajes del usuario se habían respaldado antes y se restauraron; la web los vuelve a listar |
+| Regresión `SWARM_MODE=1 bash scripts/test_maqueta.sh` | **22/22 PASS** (`test_maqueta_menu_buzon.log`); mensaje del paso 6: 65 580 bytes |
+
+**Hallazgo durante la prueba:** la primera regresión dio 21/22 porque medía el archivo mientras FreeSWITCH aún grababa (44 bytes). La grabación real tenía audio; se corrigió la espera en la prueba. Una prueba anterior desde el PC dio una grabación vacía porque la VPN se estaba cortando: había dos clientes OpenVPN activos con el mismo perfil. Con un solo cliente, la grabación desde el PC salió bien. [CODE]
+
+**Pendiente:** la opción 3 es solo la entrada del menú; la contraseña del buzón no está implementada. La opción 2 borra sin pedir confirmación y el buzón `0100003` sigue siendo compartido por todos los que llaman.

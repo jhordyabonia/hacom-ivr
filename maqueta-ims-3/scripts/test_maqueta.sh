@@ -2,7 +2,7 @@
 # test_maqueta.sh — Prueba simple y verificable de la maqueta Core IMS
 # Valida: contenedores, DNS, listeners SIP, registro IMS con IMS-AKA + IPsec ESP
 # (TS 33.203), llamada UE->AS (iFC) con IVR en FreeSWITCH, menú DTMF (FEAT-01),
-# buzón 0100003 y VMS completo por MSISDN (FEAT-02: deposit por iFC
+# mensaje de voz por el IVR 0100002 al buzón 0100003 y VMS completo por MSISDN (FEAT-02: deposit por iFC
 # terminating-unregistered, MWI por SUBSCRIBE/NOTIFY y recuperación con PIN).
 # Uso:  bash scripts/test_maqueta.sh   (salida exit 0 si todo pasa)
 
@@ -112,6 +112,16 @@ report "$([ $R1S -eq 0 ] && [ "${N_SA:-0}" -ge 4 ] && echo 0 || echo 1)" "sec-ag
 sleep 4; kill_sip; sleep 1
 
 say "PASO 5/6 — Llamada UE1 -> AS (iFC -> IVR en FreeSWITCH)"
+# El IVR 0100002 graba un mensaje en el buzón 0100003 si nadie marca tras el
+# menú (~19 s). Las llamadas de 5 y 5b cuelgan antes; por si alguna llegara a
+# grabar, se toma la lista del buzón y se borra lo nuevo antes del paso 6.
+vms_list() { docker exec "$FREESWITCH" sh -c "ls ${VMS_DIR}/ 2>/dev/null | grep '^msg.*\.wav$' | sort"; }
+vms_clean_new() {  # $1 = lista previa: borra los mensajes que no estaban
+  for f in $(vms_list | grep -vxF -f <(printf '%s\n' "$1" | grep .) 2>/dev/null); do
+    docker exec "$FREESWITCH" rm -f "${VMS_DIR}/$f"
+  done
+}
+V_PREV=$(vms_list)
 # Determinista: pjsua registra; un escritor retrasado por el pipe ordena la llamada
 # ('m') al ver 200 OK del REGISTER. El 'sleep' final mantiene abierto el stdin
 # (al cerrarse pjsua cuelga: 487 Session already DISCONNECTED).
@@ -152,7 +162,9 @@ report "$([ "$RF" -eq 0 ] && [ -n "$IVR_ACTION" ] && echo 0 || echo 1)" "FEAT-01
 report "$([ -n "$IVR_JSONL" ] && echo 0 || echo 1)" "FEAT-01: CDR de opción persistido" "$([ -n "$IVR_JSONL" ] && echo 'ivr_cdr.jsonl digit=1 action=playback' || echo 'sin fila nueva digit=1')"
 kill_sip; sleep 1
 
-say "PASO 6/6 — VMS: el UE1 deja un mensaje en el buzón 0100003 (iFC)"
+vms_clean_new "$V_PREV"
+
+say "PASO 6/6 — VMS: el UE1 deja un mensaje de voz por el IVR 0100002 (buzón 0100003)"
 # El AS necesita audio real para la grabación (con --null-audio pjsua no genera
 # RTP y la app abandona: "Recording was 0 seconds long"). Se genera un tono de
 # 45 s y se inyecta en el softphone vía cp.
@@ -170,10 +182,10 @@ PYEOF
 docker cp /tmp/left_msg_tone.wav "$SOFTPHONE":/tmp/left_msg.wav 2>/dev/null
 # QA-13: no se borra el buzón; se cuentan los mensajes previos y al final se
 # elimina solo el que deja esta prueba (los de los usuarios se conservan).
-vms_list() { docker exec "$FREESWITCH" sh -c "ls ${VMS_DIR}/ 2>/dev/null | grep '^msg.*\.wav$' | sort"; }
 V_PREV=$(vms_list); V_BEFORE=$(printf '%s' "$V_PREV" | grep -c . )
-# El buzón saluda (~10 s) y graba tras el tono: la llamada dura 24 s.
-ue_run 1 pjV.log "echo m; sleep 0.7; echo 'sip:0100003@$DOMAIN'; sleep 24; echo h; sleep 2; echo q; sleep 4" --play-file /tmp/left_msg.wav --auto-play
+# El IVR saluda (~9 s), da el menú, espera 3 s, avisa y graba tras el tono
+# (~19 s desde que contesta): la llamada dura 32 s.
+ue_run 1 pjV.log "echo m; sleep 0.7; echo 'sip:0100002@$DOMAIN'; sleep 32; echo h; sleep 2; echo q; sleep 4" --play-file /tmp/left_msg.wav --auto-play
 wait_pj 25 pjV.log "Call 0 state changed to CONFIRMED"; RVC=$?
 V_AFTER=$V_BEFORE; i=0
 while [ "$V_AFTER" -le "$V_BEFORE" ] && [ "$i" -lt 50 ]; do
@@ -182,9 +194,17 @@ while [ "$V_AFTER" -le "$V_BEFORE" ] && [ "$i" -lt 50 ]; do
   i=$((i+1))
 done
 V_NEW=$(vms_list | grep -vxF -f <(printf '%s\n' "$V_PREV" | grep .) 2>/dev/null)
-report "$([ $RVC -eq 0 ] && echo 0 || echo 1)" "VMS: llamada UE1 -> buzón (CONFIRMED)" "UE1 -> 0100003 vía iFC"
-report "$([ "$V_AFTER" -gt "$V_BEFORE" ] && echo 0 || echo 1)" "VMS: mensaje grabado en INBOX" "msg*.wav: ${V_BEFORE} -> ${V_AFTER:-0} (Buzón 0100003)"
-for f in $V_NEW; do docker exec "$FREESWITCH" rm -f "${VMS_DIR}/$f"; done
+# Con audio: más de 1 s de grabación (16 KB a 8 kHz/16 bit). Mientras FreeSWITCH
+# graba, el archivo solo tiene la cabecera WAV (44 bytes): se espera al cierre.
+V_SIZE=0; i=0
+while [ -n "$V_NEW" ] && [ "${V_SIZE:-0}" -le 16000 ] && [ "$i" -lt 20 ]; do
+  for f in $V_NEW; do V_SIZE=$(docker exec "$FREESWITCH" stat -c %s "${VMS_DIR}/$f" 2>/dev/null || echo 0); done
+  [ "${V_SIZE:-0}" -gt 16000 ] || sleep 2
+  i=$((i+1))
+done
+report "$([ $RVC -eq 0 ] && echo 0 || echo 1)" "VMS: llamada UE1 -> IVR 0100002 (CONFIRMED)" "UE1 -> 0100002 vía iFC"
+report "$([ "$V_AFTER" -gt "$V_BEFORE" ] && [ "${V_SIZE:-0}" -gt 16000 ] && echo 0 || echo 1)" "VMS: mensaje de voz grabado en INBOX" "msg*.wav: ${V_BEFORE} -> ${V_AFTER:-0}, ${V_SIZE:-0} bytes (Buzón 0100003)"
+vms_clean_new "$V_PREV"
 kill_sip; sleep 1
 
 say "PASO 6b/6 — FEAT-02: VMS completo (mod_voicemail + MWI + recuperación)"
